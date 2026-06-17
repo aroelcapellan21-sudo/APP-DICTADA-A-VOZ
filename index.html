@@ -704,7 +704,7 @@ async function analizar(){
   document.getElementById('asig-card').style.display='none';
   setBadge('Procesando','proc');
   try{
-    const items=await analizarBackend();
+    const items=(await analizarBackend()).filter(it=>it&&typeof it.nombre==='string'&&it.nombre.trim());
     if(!items||!items.length){
       document.getElementById('cargando').style.display='none';
       document.getElementById('scan-sec').style.display='block';
