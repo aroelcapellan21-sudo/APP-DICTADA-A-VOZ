@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>BON — Lector de Facturas</title>
+<style>
+:root {
+  --bg: #f5f5f5;
+  --white: #ffffff;
+  --bon-red: #d32f2f;
+  --bon-green: #2e7d32;
+  --bon-yellow: #f9a825;
+  --bon-red-light: #ffebee;
+  --bon-green-light: #e8f5e9;
+  --bon-yellow-light: #fffde7;
+  --text: #1a1a1a;
+  --muted: #757575;
+  --border: #e0e0e0;
+  --done-bg: #e8f5e9;
+  --active-bg: #fff8e1;
+  --shadow: 0 2px 8px rgba(0,0,0,0.1);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 72px;
+}
+
+/* HEADER */
+header {
+  background: var(--white);
+  border-bottom: 3px solid var(--bon-red);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+.header-stripe {
+  height: 4px;
+  background: linear-gradient(90deg, var(--bon-red) 33%, var(--bon-yellow) 33% 66%, var(--bon-green) 66%);
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+.header-title span:first-child {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  display: block;
+}
+.header-title strong {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--bon-red);
+}
+#status-badge {
+  font-size: 0.68rem;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--bg);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+#status-badge.listening { background: #e8f5e9; color: var(--bon-green); border-color: var(--bon-green); }
+#status-badge.processing { background: #fff8e1; color: #e65100; border-color: var(--bon-yellow); }
+#status-badge.speaking { background: #ffebee; color: var(--bon-red); border-color: var(--bon-red); }
+
+/* MAIN */
+main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+/* LOGO */
+.logo-hero {
+  display: flex; flex-direction: column; align-items: center; padding: 16px 0 4px; gap: 6px;
+}
+.logo-circle {
+  width: 86px; height: 86px; border-radius: 50%; background: white;
+  box-shadow: var(--shadow-lg); display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border: 3px solid var(--border);
+}
+.logo-circle svg { width: 80px; height: 80px; }
+.logo-tagline { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* CARD */
+.card { background: var(--white); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.card-header {
+  padding: 10px 16px; font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.card-body { padding: 14px 16px; }
+
+/* API ROW */
+.api-row { display: flex; gap: 8px; align-items: center; }
+.api-row select {
+  flex: 0 0 auto;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 8px; color: var(--text); font-size: 0.8rem; outline: none;
+}
+#api-key-input {
+  flex: 1;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 0.82rem; font-family: monospace; outline: none;
+}
+#api-key-input:focus, .api-row select:focus { border-color: var(--bon-red); }
+
+/* CAMERA */
+#camera-preview {
+  width: 100%; border-radius: 10px; aspect-ratio: 4/3;
+  object-fit: cover; display: none; background: #000;
+}
+#captured-img {
+  width: 100%; border-radius: 10px; aspect-ratio: 4/3;
+  object-fit: cover; display: none; border: 2px solid var(--bon-green);
+}
+canvas { display: none; }
+
+/* BTN GRID */
+.btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+.btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.btn-grid-full { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+
+.btn {
+  padding: 12px 8px; border-radius: 10px; border: none; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  -webkit-tap-highlight-color: transparent; line-height: 1.2; text-align: center;
+}
+.btn:active { transform: scale(0.95); }
+.btn:disabled { opacity: 0.35; pointer-events: none; }
+.btn-icon { font-size: 1.3rem; }
+.btn-red { background: var(--bon-red); color: white; }
+.btn-green { background: var(--bon-green); color: white; }
+.btn-yellow { background: var(--bon-yellow); color: #333; }
+.btn-outline { background: var(--white); color: var(--text); border: 1.5px solid var(--border); }
+.btn-outline-red { background: var(--bon-red-light); color: var(--bon-red); border: 1.5px solid var(--bon-red); }
+.btn-full { width: 100%; flex-direction: row; padding: 14px 16px; font-size: 1rem; border-radius: 12px; gap: 10px; }
+.btn-full .btn-icon { font-size: 1.1rem; }
+
+/* LOADER */
+#loader { display: none; flex-direction: column; align-items: center; gap: 14px; padding: 32px 0; }
+.spinner {
+  width: 44px; height: 44px; border: 4px solid var(--border);
+  border-top-color: var(--bon-red); border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loader p { color: var(--muted); font-size: 0.9rem; }
+
+/* RESULTS */
+#results-section { display: none; flex-direction: column; gap: 12px; }
+#progress-bar-wrap { background: var(--border); border-radius: 99px; height: 5px; overflow: hidden; }
+#progress-bar {
+  height: 100%; background: linear-gradient(90deg, var(--bon-red), var(--bon-yellow), var(--bon-green));
+  border-radius: 99px; transition: width 0.4s ease; width: 0%;
+}
+
+/* CURRENT ITEM */
+#current-item-display {
+  background: var(--white); border: 2px solid var(--bon-yellow);
+  border-radius: 14px; padding: 20px 16px; text-align: center; box-shadow: var(--shadow);
+}
+#current-category { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--bon-green); font-weight: 700; margin-bottom: 6px; }
+#current-product { font-size: 1.4rem; font-weight: 800; color: var(--bon-red); line-height: 1.2; margin-bottom: 6px; }
+#current-qty { font-size: 1.1rem; color: var(--text); font-weight: 600; background: var(--bon-yellow-light); display: inline-block; padding: 4px 16px; border-radius: 99px; }
+#item-counter { font-size: 0.72rem; color: var(--muted); margin-top: 10px; }
+
+/* MIC INDICATOR */
+#mic-indicator {
+  display: none; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 12px; background: var(--bon-green-light); border-radius: 8px;
+  font-size: 0.78rem; color: var(--bon-green); border: 1px solid #a5d6a7;
+}
+#mic-indicator.active { display: flex; }
+.mic-pulse {
+  width: 9px; height: 9px; background: var(--bon-green); border-radius: 50%;
+  animation: pulse 1s ease infinite; flex-shrink: 0;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}
+
+/* AUTO ADVANCE */
+#auto-advance-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--bon-yellow-light); border: 1px solid var(--bon-yellow); border-radius: 8px;
+  font-size: 0.78rem; color: #333;
+}
+#btn-auto-toggle {
+  background: var(--bon-yellow); color: #333; border: none; border-radius: 50%;
+  width: 30px; height: 30px; font-size: 0.95rem; cursor: pointer; flex-shrink: 0;
+}
+#auto-advance-text { flex: 1; font-weight: 600; }
+.auto-stepper { display: flex; align-items: center; gap: 6px; }
+.auto-stepper button {
+  width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--white); font-size: 0.95rem; cursor: pointer;
+}
+#auto-seconds-label { font-size: 0.74rem; color: var(--muted); min-width: 26px; text-align: center; }
+
+/* ITEM LIST */
+#item-list { display: flex; flex-direction: column; gap: 5px; max-height: 240px; overflow-y: auto; }
+.category-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--bon-green); font-weight: 700; padding: 8px 4px 4px;
+  border-bottom: 2px solid var(--bon-green); margin-top: 4px;
+}
+.item-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--white); border-radius: 8px; border: 1px solid var(--border); transition: all 0.2s;
+}
+.item-row.done { background: var(--done-bg); border-color: #a5d6a7; opacity: 0.65; }
+.item-row.active { background: var(--active-bg); border-color: var(--bon-yellow); box-shadow: 0 0 0 2px var(--bon-yellow); }
+.item-check {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; transition: all 0.2s;
+}
+.item-row.done .item-check { background: var(--bon-green); border-color: var(--bon-green); color: white; }
+.item-row.active .item-check { background: var(--bon-yellow); border-color: var(--bon-yellow); color: #333; }
+.item-name { flex: 1; font-size: 0.88rem; color: var(--text); }
+.item-qty { font-size: 0.82rem; font-weight: 700; color: var(--bon-red); }
+
+/* RESULTADO CARD (estilo solicitado) */
+#resultado {
+  display: none;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,.15);
+  padding: 16px;
+  margin-bottom: 4px;
+}
+.resultado-titulo {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;
+}
+.categoria {
+  background: #f5f5f5; padding: 12px; border-radius: 12px; margin-top: 10px;
+}
+.categoria h4 { color: #d32f2f; margin-bottom: 8px; font-size: 0.9rem; }
+.producto {
+  display: flex; justify-content: space-between;
+  font-size: 0.85rem; padding: 4px 0; border-bottom: 1px dashed var(--border);
+}
+.producto:last-child { border-bottom: none; }
+.prod-nombre { color: var(--text); }
+.prod-qty { color: var(--bon-red); font-weight: 700; }
+
+/* DONE */
+#done-section {
+  display: none; text-align: center; padding: 32px 16px;
+  flex-direction: column; align-items: center; gap: 14px;
+}
+.check-big { font-size: 4rem; }
+#done-section h2 { font-size: 1.3rem; color: var(--bon-green); font-weight: 800; }
+#done-section p { color: var(--muted); font-size: 0.88rem; }
+
+/* CARGANDO */
+#cargando {
+  display: none; text-align: center; padding: 20px;
+  font-size: 18px; color: #d32f2f;
+}
+
+/* MANUAL MODAL */
+#manual-modal, #manualModal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  z-index: 200; align-items: flex-end; justify-content: center;
+}
+#manual-modal.open, #manualModal.open { display: flex; }
+.modal-sheet {
+  background: var(--white); border-radius: 20px 20px 0 0; width: 100%;
+  max-height: 90dvh; overflow-y: auto; padding: 20px 16px 32px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.manualCaja {
+  background: white; width: 90%; max-width: 400px; padding: 20px;
+  border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+}
+#textoManual { width: 100%; height: 150px; margin: 15px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
+.modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 99px; margin: 0 auto 4px; }
+.modal-title { font-size: 1rem; font-weight: 700; color: var(--bon-red); text-align: center; }
+.modal-section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 4px; }
+.manual-input {
+  width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 0.9rem; outline: none;
+}
+.manual-input:focus { border-color: var(--bon-red); }
+#manual-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.manual-item {
+  display: flex; align-items: center; gap: 8px; background: var(--bg);
+  border-radius: 8px; padding: 8px 12px; font-size: 0.85rem;
+}
+.manual-item-cat { font-size: 0.68rem; color: var(--bon-green); font-weight: 700; min-width: 60px; }
+.manual-item-name { flex: 1; color: var(--text); }
+.manual-item-qty { color: var(--bon-red); font-weight: 700; font-size: 0.82rem; }
+.btn-remove { background: none; border: none; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 2px 4px; }
+.botonesManual { display: flex; gap: 10px; }
+.botonesManual button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+#cancelarManual { background: #777; color: white; }
+#guardarManual { background: #2e7d32; color: white; }
+
+/* MENÚ INFERIOR */
+.menuInferior {
+  position: fixed; bottom: 0; left: 0; width: 100%;
+  background: white; display: grid; grid-template-columns: repeat(4, 1fr);
+  box-shadow: 0 -5px 15px rgba(0,0,0,.15); padding: 8px; z-index: 99;
+}
+.menuInferior button {
+  background: none; border: none; font-size: 14px; cursor: pointer;
+  padding: 8px 4px; border-radius: 8px; display: flex; flex-direction: column;
+  align-items: center; gap: 3px; -webkit-tap-highlight-color: transparent;
+  color: var(--muted); transition: color 0.2s;
+}
+.menuInferior button.active { color: var(--bon-red); font-weight: 700; }
+.menuInferior button span.ico { font-size: 1.4rem; }
+.menuInferior button span.lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; }
+
+#file-input { display: none; }
+#item-list::-webkit-scrollbar, #manual-list::-webkit-scrollbar { width: 3px; }
+#item-list::-webkit-scrollbar-thumb, #manual-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-stripe"></div>
+  <div class="header-inner">
+    <div class="header-title">
+      <span>Polar Breeze</span>
+      <strong>Lector de Facturas</strong>
+    </div>
+    <span id="status-badge">Listo</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- LOGO HERO -->
+  <div class="logo-hero">
+    <div class="logo-circle">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="#e0e0e0" stroke-width="8"/>
+        <path d="M 50 4 A 46 46 0 0 0 13 23" fill="none" stroke="#d32f2f" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 50 4 A 46 46 0 0 1 87 23" fill="none" stroke="#f9a825" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 13 23 A 46 46 0 0 0 87 23" fill="none" stroke="#2e7d32" stroke-width="8" stroke-linecap="round"/>
+        <text x="50" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="700" fill="#2e7d32" letter-spacing="2">HELADOS</text>
+        <text x="50" y="68" text-anchor="middle" font-family="Georgia, serif" font-size="30" font-weight="900" fill="#d32f2f">BON</text>
+        <ellipse cx="50" cy="44" rx="4" ry="6" fill="#f9a825"/>
+        <ellipse cx="50" cy="41" rx="3" ry="2" fill="#2e7d32"/>
+      </svg>
+    </div>
+    <span class="logo-tagline">Sistema de lectura de facturas</span>
+  </div>
+
+  <!-- API KEY -->
+  <div class="card">
+    <div class="card-header">Configuración de IA</div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="api-row">
+        <select id="ai-provider">
+          <option value="gemini">Gemini</option>
+          <option value="claude">Claude</option>
+        </select>
+        <input type="password" id="api-key-input" placeholder="Pega tu API key aquí..." autocomplete="off" spellcheck="false">
+      </div>
+      <div id="model-info" style="font-size:0.72rem;color:var(--muted);">
+        Gemini 2.5 Flash — visión de imágenes incluida
+      </div>
+    </div>
+  </div>
+
+  <!-- SCAN -->
+  <div class="card" id="scan-section">
+    <div class="card-header">Capturar Factura</div>
+    <div class="card-body">
+      <video id="camera-preview" autoplay playsinline muted></video>
+      <img id="captured-img" alt="Factura">
+      <canvas id="canvas"></canvas>
+      <input type="file" id="file-input" accept="image/*">
+
+      <div class="btn-grid-3" id="main-buttons">
+        <button class="btn btn-red" id="btn-camera">
+          <span class="btn-icon">📷</span>Cámara
+        </button>
+        <button class="btn btn-yellow" id="btn-file">
+          <span class="btn-icon">🗂</span>Archivo
+        </button>
+        <button class="btn btn-green" id="btn-manual-open">
+          <span class="btn-icon">✏️</span>Manual
+        </button>
+      </div>
+
+      <div class="btn-grid-2" id="capture-buttons" style="display:none">
+        <button class="btn btn-outline" id="btn-retake">🔄 Nueva foto</button>
+        <button class="btn btn-red" id="btn-capture" style="display:none">📸 Capturar</button>
+      </div>
+
+      <div class="btn-grid-full" id="analyze-row" style="display:none">
+        <button class="btn btn-red btn-full" id="btn-analyze">
+          <span class="btn-icon">🔍</span> Analizar Factura
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARGANDO -->
+  <div id="cargando">
+    <div class="spinner" style="margin:0 auto 12px;width:40px;height:40px;border:4px solid #eee;border-top-color:#d32f2f;border-radius:50%;animation:spin 0.7s linear infinite;"></div>
+    <p id="loader-text">Analizando factura con IA...</p>
+  </div>
+
+  <!-- RESULTADO (estilo solicitado) -->
+  <div id="resultado">
+    <div class="resultado-titulo">Productos detectados</div>
+    <div id="categorias-container"></div>
+  </div>
+
+  <!-- RESULTS (dictado) -->
+  <div id="results-section">
+    <div id="progress-bar-wrap">
+      <div id="progress-bar"></div>
+    </div>
+
+    <div id="current-item-display">
+      <div id="current-category">—</div>
+      <div id="current-product">—</div>
+      <div id="current-qty">—</div>
+      <div id="item-counter">—</div>
+    </div>
+
+    <div id="auto-advance-bar">
+      <button id="btn-auto-toggle" title="Pausar/Activar">⏸</button>
+      <span id="auto-advance-text">Avanza en 5s</span>
+      <div class="auto-stepper">
+        <button id="btn-auto-minus">−</button>
+        <span id="auto-seconds-label">5s</span>
+        <button id="btn-auto-plus">+</button>
+      </div>
+    </div>
+
+    <div id="mic-indicator">
+      <div class="mic-pulse"></div>
+      Escuchando… di "siguiente" o "repetir"
+    </div>
+
+    <div class="btn-grid-full">
+      <button class="btn btn-red btn-full" id="btn-next">➡ Siguiente</button>
+    </div>
+    <div class="btn-grid-2">
+      <button class="btn btn-outline" id="btn-repeat">🔁 Repetir</button>
+      <button class="btn btn-outline-red" id="btn-restart">↩ Reiniciar</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Productos</div>
+      <div class="card-body" style="padding:10px 12px">
+        <div id="item-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DONE -->
+  <div id="done-section">
+    <div class="check-big">✅</div>
+    <h2>¡Factura completa!</h2>
+    <p id="done-summary"></p>
+    <button class="btn btn-red btn-full" id="btn-new">📷 Nueva Factura</button>
+  </div>
+
+</main>
+
+<!-- MENÚ INFERIOR -->
+<nav class="menuInferior">
+  <button class="active" id="menu-inicio" onclick="showTab('inicio',this)">
+    <span class="ico">🏠</span><span class="lbl">Inicio</span>
+  </button>
+  <button id="menu-camara" onclick="document.getElementById('btn-camera').click()">
+    <span class="ico">📷</span><span class="lbl">Cámara</span>
+  </button>
+  <button id="menu-manual" onclick="document.getElementById('btn-manual-open').click()">
+    <span class="ico">✏️</span><span class="lbl">Manual</span>
+  </button>
+  <button id="menu-mic" onclick="toggleManualMic()">
+    <span class="ico" id="mic-menu-ico">🎙</span><span class="lbl">Voz</span>
+  </button>
+</nav>
+
+<!-- MANUAL MODAL -->
+<div id="manual-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Entrada Manual</div>
+
+    <div class="modal-section-title">Categoría</div>
+    <select class="manual-input" id="manual-cat">
+      <option value="Paletas">Paletas</option>
+      <option value="Helados">Helados</option>
+      <option value="Conos">Conos</option>
+      <option value="Vasos">Vasos</option>
+      <option value="Bombones">Bombones</option>
+      <option value="Sándwiches">Sándwiches</option>
+      <option value="Otros">Otros</option>
+    </select>
+
+    <div class="modal-section-title">Producto</div>
+    <input class="manual-input" type="text" id="manual-name" placeholder="Ej: Paleta Coco" autocomplete="off">
+
+    <div class="modal-section-title">Cantidad</div>
+    <input class="manual-input" type="text" id="manual-qty" placeholder="Ej: 24 unidades" autocomplete="off">
+
+    <button class="btn btn-green btn-full" id="btn-manual-add" style="margin-top:4px">+ Agregar Producto</button>
+
+    <div id="manual-list"></div>
+
+    <div class="btn-grid-2" style="margin-top:8px">
+      <button class="btn btn-outline" id="btn-manual-close">Cancelar</button>
+      <button class="btn btn-red" id="btn-manual-start">▶ Iniciar Dictado</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let apiKey = '';
+let aiProvider = 'gemini';
+let allItems = [];
+let currentIndex = -1;
+let stream = null;
+let capturedBlob = null;
+let capturedDataUrl = null;
+let recognition = null;
+let synth = window.speechSynthesis;
+let isSpeaking = false;
+let manualItems = [];
+let autoAdvanceEnabled = true;
+let autoAdvanceSeconds = 5;
+let autoAdvanceTimer = null;
+let autoCountdownInterval = null;
+let autoRemaining = 0;
+let micActive = false;
+
+// ═══════════════════════════════════════════
+// ELEMENTS
+// ═══════════════════════════════════════════
+const $id = id => document.getElementById(id);
+const badge = $id('status-badge');
+const cameraPreview = $id('camera-preview');
+const capturedImg = $id('captured-img');
+const cnv = $id('canvas');
+const fileInput = $id('file-input');
+const loaderEl = $id('cargando');
+const loaderText = $id('loader-text');
+const resultsSection = $id('results-section');
+const resultadoCard = $id('resultado');
+const categoriasCont = $id('categorias-container');
+const doneSection = $id('done-section');
+const scanSection = $id('scan-section');
+
+// ═══════════════════════════════════════════
+// PROVIDER SELECTOR
+// ═══════════════════════════════════════════
+$id('ai-provider').addEventListener('change', function() {
+  aiProvider = this.value;
+  const info = $id('model-info');
+  if (aiProvider === 'gemini') {
+    info.textContent = 'Gemini 2.5 Flash — visión de imágenes incluida';
+    $id('api-key-input').placeholder = 'AIza...';
+  } else {
+    info.textContent = 'Claude claude-sonnet-4-6 — visión de imágenes incluida';
+    $id('api-key-input').placeholder = 'sk-ant-...';
+  }
+});
+
+$id('api-key-input').addEventListener('input', function() {
+  apiKey = this.value.trim();
+});
+
+// ═══════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════
+$id('btn-camera').addEventListener('click', async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } }
+    });
+    cameraPreview.srcObject = stream;
+    cameraPreview.style.display = 'block';
+    capturedImg.style.display = 'none';
+    $id('capture-buttons').style.display = 'grid';
+    $id('btn-capture').style.display = 'flex';
+    $id('analyze-row').style.display = 'none';
+    setBadge('Cámara activa', '');
+  } catch (e) {
+    alert('No se pudo acceder a la cámara: ' + e.message);
+  }
+});
+
+$id('btn-capture').addEventListener('click', () => {
+  const ctx = cnv.getContext('2d');
+  cnv.width = cameraPreview.videoWidth;
+  cnv.height = cameraPreview.videoHeight;
+  ctx.drawImage(cameraPreview, 0, 0);
+  cnv.toBlob(blob => {
+    capturedBlob = blob;
+    capturedDataUrl = cnv.toDataURL('image/jpeg', 0.85);
+    capturedImg.src = capturedDataUrl;
+    capturedImg.style.display = 'block';
+    cameraPreview.style.display = 'none';
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    $id('btn-capture').style.display = 'none';
+    $id('analyze-row').style.display = 'grid';
+    setBadge('Foto lista', '');
+  }, 'image/jpeg', 0.85);
+});
+
+$id('btn-retake').addEventListener('click', () => {
+  capturedImg.style.display = 'none';
+  capturedBlob = null;
+  capturedDataUrl = null;
+  $id('capture-buttons').style.display = 'none';
+  $id('analyze-row').style.display = 'none';
+  $id('btn-camera').click();
+});
+
+// ═══════════════════════════════════════════
+// FILE INPUT
+// ═══════════════════════════════════════════
+$id('btn-file').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    capturedDataUrl = ev.target.result;
+    capturedBlob = file;
+    capturedImg.src = capturedDataUrl;
+    capturedImg.style.display = 'block';
+    cameraPreview.style.display = 'none';
+    $id('capture-buttons').style.display = 'none';
+    $id('analyze-row').style.display = 'grid';
+    setBadge('Imagen cargada', '');
+  };
+  reader.readAsDataURL(file);
+});
+
+// ═══════════════════════════════════════════
+// ANALYZE
+// ═══════════════════════════════════════════
+$id('btn-analyze').addEventListener('click', analyzeInvoice);
+
+async function analyzeInvoice() {
+  if (!apiKey) { alert('Por favor ingresa tu API key primero.'); return; }
+  if (!capturedDataUrl && !capturedBlob) { alert('Primero captura o carga una imagen de la factura.'); return; }
+
+  showLoader('Analizando factura con IA...');
+  setBadge('Procesando', 'processing');
+  resultadoCard.style.display = 'none';
+  resultsSection.style.display = 'none';
+  doneSection.style.display = 'none';
+
+  try {
+    let items;
+    if (aiProvider === 'gemini') {
+      items = await analyzeWithGemini();
+    } else {
+      items = await analyzeWithClaude();
+    }
+
+    if (!items || items.length === 0) {
+      hideLoader();
+      setBadge('Sin datos', '');
+      alert('No se detectaron productos. Intenta con una imagen más clara.');
+      return;
+    }
+
+    allItems = items;
+    renderResultadoCard(items);
+    renderItemList(items);
+    hideLoader();
+    setBadge('Listo', '');
+    startDictation();
+  } catch (err) {
+    hideLoader();
+    setBadge('Error', '');
+    alert('Error al analizar: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ───────────────────────────────────────────
+// GEMINI API
+// ───────────────────────────────────────────
+async function analyzeWithGemini() {
+  const base64 = capturedDataUrl.split(',')[1];
+  const mimeType = capturedDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+
+  const prompt = `Analiza esta factura de helados BON y extrae TODOS los productos con sus cantidades.
+Responde SOLO con JSON válido, sin texto adicional, sin markdown, sin backticks.
+Formato exacto:
+[
+  {"categoria": "Paletas", "nombre": "Paleta Coco", "cantidad": "24 unidades"},
+  {"categoria": "Helados", "nombre": "Helado Vainilla", "cantidad": "12 unidades"}
+]
+Categorías posibles: Paletas, Helados, Conos, Vasos, Bombones, Sándwiches, Otros.
+Si no puedes leer algún campo pon "N/D".`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt }
+      ]
+    }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || 'Error Gemini ' + res.status);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return parseItemsFromText(text);
+}
+
+// ───────────────────────────────────────────
+// CLAUDE API
+// ───────────────────────────────────────────
+async function analyzeWithClaude() {
+  const base64 = capturedDataUrl.split(',')[1];
+  const mimeType = capturedDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+
+  const prompt = `Analiza esta factura de helados BON y extrae TODOS los productos con sus cantidades.
+Responde SOLO con JSON válido, sin texto adicional, sin markdown, sin backticks.
+Formato exacto:
+[
+  {"categoria": "Paletas", "nombre": "Paleta Coco", "cantidad": "24 unidades"}
+]
+Categorías posibles: Paletas, Helados, Conos, Vasos, Bombones, Sándwiches, Otros.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || 'Error Claude ' + res.status);
+  }
+
+  const data = await res.json();
+  const text = data.content?.[0]?.text || '';
+  return parseItemsFromText(text);
+}
+
+// ───────────────────────────────────────────
+// PARSE JSON from AI response
+// ───────────────────────────────────────────
+function parseItemsFromText(text) {
+  const clean = text.replace(/```json|```/g, '').trim();
+  // Find JSON array
+  const match = clean.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('No se pudo extraer JSON de la respuesta.');
+  return JSON.parse(match[0]);
+}
+
+// ═══════════════════════════════════════════
+// RENDER RESULTADO CARD (estilo solicitado)
+// ═══════════════════════════════════════════
+function renderResultadoCard(items) {
+  const grouped = groupByCategory(items);
+  categoriasCont.innerHTML = '';
+  for (const [cat, prods] of Object.entries(grouped)) {
+    const div = document.createElement('div');
+    div.className = 'categoria';
+    div.innerHTML = `<h4>${cat}</h4>` +
+      prods.map(p =>
+        `<div class="producto">
+          <span class="prod-nombre">${p.nombre}</span>
+          <span class="prod-qty">${p.cantidad}</span>
+        </div>`
+      ).join('');
+    categoriasCont.appendChild(div);
+  }
+  resultadoCard.style.display = 'block';
+}
+
+function groupByCategory(items) {
+  const g = {};
+  for (const it of items) {
+    const cat = it.categoria || 'Otros';
+    if (!g[cat]) g[cat] = [];
+    g[cat].push(it);
+  }
+  return g;
+}
+
+// ═══════════════════════════════════════════
+// RENDER ITEM LIST (dictado)
+// ═══════════════════════════════════════════
+function renderItemList(items) {
+  const list = $id('item-list');
+  list.innerHTML = '';
+  const grouped = groupByCategory(items);
+  let globalIdx = 0;
+  for (const [cat, prods] of Object.entries(grouped)) {
+    const lbl = document.createElement('div');
+    lbl.className = 'category-label';
+    lbl.textContent = cat;
+    list.appendChild(lbl);
+    for (const p of prods) {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.dataset.index = globalIdx++;
+      row.innerHTML = `
+        <div class="item-check"></div>
+        <span class="item-name">${p.nombre}</span>
+        <span class="item-qty">${p.cantidad}</span>
+      `;
+      list.appendChild(row);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// DICTATION
+// ═══════════════════════════════════════════
+function startDictation() {
+  currentIndex = -1;
+  scanSection.style.display = 'none';
+  resultsSection.style.display = 'flex';
+  doneSection.style.display = 'none';
+  startVoiceRecognition();
+  nextItem();
+}
+
+function nextItem() {
+  clearAutoAdvance();
+  if (currentIndex >= 0) markDone(currentIndex);
+  currentIndex++;
+  if (currentIndex >= allItems.length) {
+    finishDictation();
+    return;
+  }
+  updateCurrentDisplay();
+  speakCurrent();
+  if (autoAdvanceEnabled) startAutoAdvance();
+}
+
+function repeatItem() {
+  clearAutoAdvance();
+  speakCurrent();
+  if (autoAdvanceEnabled) startAutoAdvance();
+}
+
+function updateCurrentDisplay() {
+  const item = allItems[currentIndex];
+  $id('current-category').textContent = item.categoria || '—';
+  $id('current-product').textContent = item.nombre;
+  $id('current-qty').textContent = item.cantidad;
+  $id('item-counter').textContent = `Producto ${currentIndex + 1} de ${allItems.length}`;
+  const pct = ((currentIndex) / allItems.length) * 100;
+  $id('progress-bar').style.width = pct + '%';
+
+  // Highlight active
+  document.querySelectorAll('.item-row').forEach(r => {
+    r.classList.remove('active');
+    if (parseInt(r.dataset.index) === currentIndex) {
+      r.classList.add('active');
+      r.scrollIntoView({ block: 'nearest' });
+    }
+  });
+}
+
+function markDone(idx) {
+  document.querySelectorAll('.item-row').forEach(r => {
+    if (parseInt(r.dataset.index) === idx) {
+      r.classList.remove('active');
+      r.classList.add('done');
+      r.querySelector('.item-check').textContent = '✓';
+    }
+  });
+}
+
+function finishDictation() {
+  clearAutoAdvance();
+  stopVoiceRecognition();
+  resultsSection.style.display = 'none';
+  doneSection.style.display = 'flex';
+  $id('done-summary').textContent = `${allItems.length} productos procesados correctamente.`;
+  $id('progress-bar').style.width = '100%';
+  speak('¡Factura completa! Se procesaron ' + allItems.length + ' productos.');
+  setBadge('Completo', '');
+}
+
+// ═══════════════════════════════════════════
+// SPEAK
+// ═══════════════════════════════════════════
+function speak(text) {
+  if (!synth) return;
+  synth.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'es-DO';
+  utt.rate = 0.95;
+  utt.pitch = 1;
+  utt.onstart = () => { isSpeaking = true; setBadge('Hablando', 'speaking'); };
+  utt.onend = () => { isSpeaking = false; setBadge('Escuchando', 'listening'); };
+  utt.onerror = () => { isSpeaking = false; };
+  synth.speak(utt);
+}
+
+function speakCurrent() {
+  const item = allItems[currentIndex];
+  if (!item) return;
+  speak(`${item.categoria}. ${item.nombre}. Cantidad: ${item.cantidad}`);
+}
+
+// ═══════════════════════════════════════════
+// AUTO ADVANCE
+// ═══════════════════════════════════════════
+function startAutoAdvance() {
+  autoRemaining = autoAdvanceSeconds;
+  updateAutoText();
+  autoCountdownInterval = setInterval(() => {
+    autoRemaining--;
+    updateAutoText();
+    if (autoRemaining <= 0) {
+      clearAutoAdvance();
+      nextItem();
+    }
+  }, 1000);
+}
+
+function clearAutoAdvance() {
+  clearTimeout(autoAdvanceTimer);
+  clearInterval(autoCountdownInterval);
+  autoCountdownInterval = null;
+}
+
+function updateAutoText() {
+  if (autoAdvanceEnabled) {
+    $id('auto-advance-text').textContent = `Avanza en ${autoRemaining}s`;
+  } else {
+    $id('auto-advance-text').textContent = 'Avance automático desactivado';
+  }
+}
+
+$id('btn-auto-toggle').addEventListener('click', () => {
+  autoAdvanceEnabled = !autoAdvanceEnabled;
+  $id('btn-auto-toggle').textContent = autoAdvanceEnabled ? '⏸' : '▶';
+  if (!autoAdvanceEnabled) { clearAutoAdvance(); $id('auto-advance-text').textContent = 'Avance manual'; }
+  else if (currentIndex >= 0 && currentIndex < allItems.length) startAutoAdvance();
+});
+
+$id('btn-auto-minus').addEventListener('click', () => {
+  autoAdvanceSeconds = Math.max(2, autoAdvanceSeconds - 1);
+  $id('auto-seconds-label').textContent = autoAdvanceSeconds + 's';
+});
+
+$id('btn-auto-plus').addEventListener('click', () => {
+  autoAdvanceSeconds = Math.min(30, autoAdvanceSeconds + 1);
+  $id('auto-seconds-label').textContent = autoAdvanceSeconds + 's';
+});
+
+// ═══════════════════════════════════════════
+// VOICE RECOGNITION
+// ═══════════════════════════════════════════
+function startVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { console.warn('Sin reconocimiento de voz'); return; }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'es-DO';
+  recognition.continuous = true;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    $id('mic-indicator').classList.add('active');
+    setBadge('Escuchando', 'listening');
+  };
+
+  recognition.onresult = e => {
+    const transcript = e.results[e.results.length - 1][0].transcript.toLowerCase().trim();
+    console.log('Voz:', transcript);
+    if (transcript.includes('siguiente') || transcript.includes('próximo') || transcript.includes('proximo')) {
+      nextItem();
+    } else if (transcript.includes('repetir') || transcript.includes('repite') || transcript.includes('otra vez')) {
+      repeatItem();
+    } else if (transcript.includes('reiniciar') || transcript.includes('comenzar')) {
+      currentIndex = -1;
+      nextItem();
+    }
+  };
+
+  recognition.onerror = e => {
+    if (e.error !== 'no-speech') console.warn('Voz error:', e.error);
+  };
+
+  recognition.onend = () => {
+    // Reiniciar si sigue activo
+    if (resultsSection.style.display !== 'none') {
+      try { recognition.start(); } catch(e) {}
+    } else {
+      $id('mic-indicator').classList.remove('active');
+    }
+  };
+
+  try { recognition.start(); } catch(e) {}
+}
+
+function stopVoiceRecognition() {
+  if (recognition) { try { recognition.stop(); } catch(e) {} recognition = null; }
+  $id('mic-indicator').classList.remove('active');
+}
+
+// Botón de micrófono en menú inferior
+function toggleManualMic() {
+  if (micActive) {
+    stopVoiceRecognition();
+    micActive = false;
+    $id('mic-menu-ico').textContent = '🎙';
+  } else {
+    startVoiceRecognition();
+    micActive = true;
+    $id('mic-menu-ico').textContent = '🔴';
+  }
+}
+
+// ═══════════════════════════════════════════
+// BUTTONS
+// ═══════════════════════════════════════════
+$id('btn-next').addEventListener('click', nextItem);
+$id('btn-repeat').addEventListener('click', repeatItem);
+$id('btn-restart').addEventListener('click', () => {
+  clearAutoAdvance();
+  currentIndex = -1;
+  renderItemList(allItems);
+  nextItem();
+});
+$id('btn-new').addEventListener('click', () => {
+  allItems = [];
+  currentIndex = -1;
+  capturedBlob = null;
+  capturedDataUrl = null;
+  capturedImg.style.display = 'none';
+  capturedImg.src = '';
+  $id('capture-buttons').style.display = 'none';
+  $id('analyze-row').style.display = 'none';
+  resultadoCard.style.display = 'none';
+  doneSection.style.display = 'none';
+  scanSection.style.display = 'block';
+  setBadge('Listo', '');
+  stopVoiceRecognition();
+});
+
+// ═══════════════════════════════════════════
+// MANUAL ENTRY
+// ═══════════════════════════════════════════
+$id('btn-manual-open').addEventListener('click', () => {
+  $id('manual-modal').classList.add('open');
+});
+$id('btn-manual-close').addEventListener('click', () => {
+  $id('manual-modal').classList.remove('open');
+});
+
+$id('btn-manual-add').addEventListener('click', () => {
+  const cat = $id('manual-cat').value;
+  const name = $id('manual-name').value.trim();
+  const qty = $id('manual-qty').value.trim();
+  if (!name || !qty) { alert('Completa nombre y cantidad.'); return; }
+
+  manualItems.push({ categoria: cat, nombre: name, cantidad: qty });
+  $id('manual-name').value = '';
+  $id('manual-qty').value = '';
+  renderManualList();
+});
+
+function renderManualList() {
+  const list = $id('manual-list');
+  list.innerHTML = '';
+  manualItems.forEach((it, i) => {
+    const div = document.createElement('div');
+    div.className = 'manual-item';
+    div.innerHTML = `
+      <span class="manual-item-cat">${it.categoria}</span>
+      <span class="manual-item-name">${it.nombre}</span>
+      <span class="manual-item-qty">${it.cantidad}</span>
+      <button class="btn-remove" onclick="removeManual(${i})">✕</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+window.removeManual = function(i) {
+  manualItems.splice(i, 1);
+  renderManualList();
+};
+
+$id('btn-manual-start').addEventListener('click', () => {
+  if (manualItems.length === 0) { alert('Agrega al menos un producto.'); return; }
+  allItems = [...manualItems];
+  manualItems = [];
+  renderManualList();
+  $id('manual-modal').classList.remove('open');
+  renderResultadoCard(allItems);
+  renderItemList(allItems);
+  startDictation();
+});
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function showLoader(msg) {
+  loaderText.textContent = msg || 'Cargando...';
+  loaderEl.style.display = 'block';
+  scanSection.style.display = 'none';
+}
+
+function hideLoader() {
+  loaderEl.style.display = 'none';
+}
+
+function setBadge(text, cls) {
+  badge.textContent = text;
+  badge.className = cls || '';
+}
+
+function showTab(tab, btn) {
+  document.querySelectorAll('.menuInferior button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('bon_api_key');
+  if (saved) {
+    $id('api-key-input').value = saved;
+    apiKey = saved;
+  }
+  const savedProvider = localStorage.getItem('bon_provider');
+  if (savedProvider) {
+    $id('ai-provider').value = savedProvider;
+    $id('ai-provider').dispatchEvent(new Event('change'));
+  }
+});
+
+$id('api-key-input').addEventListener('blur', function() {
+  apiKey = this.value.trim();
+  if (apiKey) localStorage.setItem('bon_api_key', apiKey);
+});
+
+$id('ai-provider').addEventListener('change', function() {
+  aiProvider = this.value;
+  localStorage.setItem('bon_provider', aiProvider);
+});
+</script>
+</body>
+</html>
