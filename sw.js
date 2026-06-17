@@ -1,5 +1,5 @@
-const CACHE = 'bon-v1';
-const URL_APP = '/APP-DICTADA-A-VOZ/';
+const CACHE = 'bon-v2';
+const URL_APP = '/';
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -18,6 +18,12 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  // No cachear las llamadas al backend ni peticiones que no sean GET:
+  // deben ir siempre a la red (y la Cache API no admite POST).
+  if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;

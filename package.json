@@ -1,0 +1,16 @@
+{
+  "name": "dictada-bon-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lector de facturas BON (Polar Breeze) con backend Express en Vercel como proxy de Gemini y Claude.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
