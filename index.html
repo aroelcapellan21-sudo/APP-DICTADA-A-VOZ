@@ -1334,36 +1334,9 @@ actualizarRed();
 // ════ PWA ════
 // ════ SERVICE WORKER ════
 if('serviceWorker' in navigator){
-  // Crear SW inline como blob
-  const swCode=`
-self.addEventListener('install',e=>{
-  e.waitUntil(
-    caches.open('bon-v1').then(cache=>cache.addAll(['/APP-DICTADA-A-VOZ/','https://aroelcapellan21-sudo.github.io/APP-DICTADA-A-VOZ/']))
-  );
-  self.skipWaiting();
-});
-self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!=='bon-v1').map(k=>caches.delete(k)))));
-  self.clients.claim();
-});
-self.addEventListener('fetch',e=>{
-  e.respondWith(
-    caches.match(e.request).then(cached=>{
-      if(cached)return cached;
-      return fetch(e.request).then(resp=>{
-        if(resp&&resp.status===200&&resp.type==='basic'){
-          const clone=resp.clone();
-          caches.open('bon-v1').then(c=>c.put(e.request,clone));
-        }
-        return resp;
-      }).catch(()=>cached||new Response('Sin conexión',{status:503}));
-    })
-  );
-});
-`;
-  const blob=new Blob([swCode],{type:'application/javascript'});
-  const swUrl=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl).then(()=>console.log('SW registrado')).catch(e=>console.warn('SW:',e));
+  navigator.serviceWorker.register('/APP-DICTADA-A-VOZ/sw.js')
+    .then(()=>console.log('SW registrado OK'))
+    .catch(e=>console.warn('SW error:',e));
 }
 
 function setupPWA(){
