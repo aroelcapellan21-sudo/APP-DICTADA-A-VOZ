@@ -720,7 +720,7 @@ async function analizar(){
 async function analizarGemini(){
   const b64=capUrl.split(',')[1],mime=capUrl.split(';')[0].split(':')[1]||'image/jpeg';
   const cats=[...new Set(catalogo.map(p=>p.c)),'Otros'].join(', ');
-  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({contents:[{parts:[{inline_data:{mime_type:mime,data:b64}},{text:`Eres un lector de facturas de helados BON de Polar Breeze, S.R.L. Esta factura tiene columnas: Cant (cantidad), Descripción (nombre del producto), Precio, Total. Extrae TODOS los productos con su cantidad. Responde SOLO con JSON válido sin texto adicional: [{"categoria":"Paletas","nombre":"Paleta Choco Mani 32/1","cantidad":"8"}]. Categorías posibles: ${cats}. Si no puedes determinar la categoría usa "Otros".`}]}],generationConfig:{temperature:.1,maxOutputTokens:2048}})
   });
