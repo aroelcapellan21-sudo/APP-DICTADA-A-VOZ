@@ -1332,6 +1332,40 @@ window.addEventListener('offline', actualizarRed);
 actualizarRed();
 
 // ════ PWA ════
+// ════ SERVICE WORKER ════
+if('serviceWorker' in navigator){
+  // Crear SW inline como blob
+  const swCode=`
+self.addEventListener('install',e=>{
+  e.waitUntil(
+    caches.open('bon-v1').then(cache=>cache.addAll(['/APP-DICTADA-A-VOZ/','https://aroelcapellan21-sudo.github.io/APP-DICTADA-A-VOZ/']))
+  );
+  self.skipWaiting();
+});
+self.addEventListener('activate',e=>{
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!=='bon-v1').map(k=>caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch',e=>{
+  e.respondWith(
+    caches.match(e.request).then(cached=>{
+      if(cached)return cached;
+      return fetch(e.request).then(resp=>{
+        if(resp&&resp.status===200&&resp.type==='basic'){
+          const clone=resp.clone();
+          caches.open('bon-v1').then(c=>c.put(e.request,clone));
+        }
+        return resp;
+      }).catch(()=>cached||new Response('Sin conexión',{status:503}));
+    })
+  );
+});
+`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const swUrl=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).then(()=>console.log('SW registrado')).catch(e=>console.warn('SW:',e));
+}
+
 function setupPWA(){
   const m={name:'BON Lector de Facturas',short_name:'BON Facturas',start_url:location.href,display:'standalone',background_color:'#fff',theme_color:'#d32f2f',icons:[{src:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiB2aWV3Qm94PSIwIDAgMTkyIDE5MiI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iNDAiIGZpbGw9IiNkMzJmMmYiLz4KPGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iNzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iOCIvPgo8dGV4dCB4PSI5NiIgeT0iMTE1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSI1MiIgZm9udC13ZWlnaHQ9IjkwMCIgZmlsbD0id2hpdGUiPkJPTjwvdGV4dD4KPC9zdmc+',sizes:'192x192',type:'image/svg+xml'}]};
   document.getElementById('pwa-manifest').href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));
