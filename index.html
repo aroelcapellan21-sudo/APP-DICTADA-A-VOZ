@@ -207,6 +207,7 @@ input[type=file]{display:none}
       <strong>Lector de Facturas</strong>
     </div>
     <div class="hright">
+      <button onclick="navTo('patron',null)" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:3px;line-height:1" title="Patrón">📝</button>
       <span id="net-dot" title="Estado de red" style="font-size:.75rem;cursor:default">🟢</span>
       <span id="badge">Listo</span>
       <button id="btn-aj" onclick="pedirAjustes()" title="Ajustes">⚙️</button>
@@ -1332,7 +1333,7 @@ actualizarRed();
 
 // ════ PWA ════
 function setupPWA(){
-  const m={name:'BON Lector de Facturas',short_name:'BON Facturas',start_url:location.href,display:'standalone',background_color:'#fff',theme_color:'#d32f2f',icons:[{src:'https://via.placeholder.com/192x192/d32f2f/ffffff?text=BON',sizes:'192x192',type:'image/png'}]};
+  const m={name:'BON Lector de Facturas',short_name:'BON Facturas',start_url:location.href,display:'standalone',background_color:'#fff',theme_color:'#d32f2f',icons:[{src:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiB2aWV3Qm94PSIwIDAgMTkyIDE5MiI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iNDAiIGZpbGw9IiNkMzJmMmYiLz4KPGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iNzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iOCIvPgo8dGV4dCB4PSI5NiIgeT0iMTE1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSI1MiIgZm9udC13ZWlnaHQ9IjkwMCIgZmlsbD0id2hpdGUiPkJPTjwvdGV4dD4KPC9zdmc+',sizes:'192x192',type:'image/svg+xml'}]};
   document.getElementById('pwa-manifest').href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));
 }
 function setupInstall(){
