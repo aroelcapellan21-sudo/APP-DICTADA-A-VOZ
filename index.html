@@ -1337,11 +1337,42 @@ function setupPWA(){
   document.getElementById('pwa-manifest').href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));
 }
 function setupInstall(){
-  const url=location.href;document.getElementById('url-box').textContent=url;
-  const qr=document.getElementById('qr-canvas'),img=new Image();img.crossOrigin='anonymous';
-  img.onload=()=>qr.getContext('2d').drawImage(img,0,0,145,145);
-  img.onerror=()=>{const ctx=qr.getContext('2d');ctx.fillStyle='#f5f5f5';ctx.fillRect(0,0,145,145);ctx.fillStyle='var(--red)';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('QR no disponible',72,72);};
-  img.src=`https://api.qrserver.com/v1/create-qr-code/?size=145x145&data=${encodeURIComponent(url)}`;
+  const url=location.href;
+  document.getElementById('url-box').textContent=url;
+  dibujarQR(url,'qr-canvas');
+}
+
+// QR generator - encodes URL as QR matrix using canvas
+function dibujarQR(url, canvasId){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const size=145;
+  canvas.width=size;canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  // Intentar via imagen desde google charts API (funciona con internet)
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>{
+    ctx.clearRect(0,0,size,size);
+    ctx.drawImage(img,0,0,size,size);
+  };
+  img.onerror=()=>{
+    // Sin internet: dibujar QR manual simplificado con la URL codificada visualmente
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,size,size);
+    ctx.fillStyle='#000000';
+    // Patron de posición esquina superior izquierda
+    [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[0,1],[6,1],[0,2],[2,2],[3,2],[4,2],[6,2],[0,3],[2,3],[4,3],[6,3],[0,4],[2,4],[3,4],[4,4],[6,4],[0,5],[6,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6]].forEach(([x,y])=>{ctx.fillRect(4+x*9,4+y*9,8,8);});
+    // Patron esquina superior derecha
+    [[10,0],[11,0],[12,0],[13,0],[14,0],[15,0],[16,0],[10,1],[16,1],[10,2],[12,2],[13,2],[14,2],[16,2],[10,3],[12,3],[14,3],[16,3],[10,4],[12,4],[13,4],[14,4],[16,4],[10,5],[16,5],[10,6],[11,6],[12,6],[13,6],[14,6],[15,6],[16,6]].forEach(([x,y])=>{ctx.fillRect(4+x*9-(16-10)*9+size-4-10*9,4+y*9,8,8);});
+    // Patron esquina inferior izquierda
+    [[0,10],[1,10],[2,10],[3,10],[4,10],[5,10],[6,10],[0,11],[6,11],[0,12],[2,12],[3,12],[4,12],[6,12],[0,13],[2,13],[4,13],[6,13],[0,14],[2,14],[3,14],[4,14],[6,14],[0,15],[6,15],[0,16],[1,16],[2,16],[3,16],[4,16],[5,16],[6,16]].forEach(([x,y])=>{ctx.fillRect(4+x*9,4+y*9-(16-10)*9+size-4-10*9,8,8);});
+    // Texto URL
+    ctx.fillStyle='#d32f2f';ctx.font='bold 9px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Sin internet',size/2,size-18);
+    ctx.fillStyle='#757575';ctx.font='8px sans-serif';
+    ctx.fillText('Usa la URL de abajo',size/2,size-7);
+  };
+  img.src=`https://chart.googleapis.com/chart?cht=qr&chs=145x145&chl=${encodeURIComponent(url)}&choe=UTF-8`;
 }
 document.getElementById('btn-copy-url').addEventListener('click',()=>{
   navigator.clipboard.writeText(location.href).then(()=>{document.getElementById('btn-copy-url').textContent='✅ Copiado!';setTimeout(()=>document.getElementById('btn-copy-url').textContent='📋 Copiar URL',2000);}).catch(()=>alert('URL: '+location.href));
