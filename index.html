@@ -1055,6 +1055,8 @@ function renderChoferes() {
 
 function abrirModalChofer(id) {
   choferFotoDataUrl = null;
+  // Resetear input de foto para que dispare 'change' siempre
+  document.getElementById('chofer-foto-input').value = '';
   document.getElementById('chofer-edit-id').value = id || '';
   document.getElementById('modal-chofer-titulo').textContent = id ? 'Editar Chofer' : 'Nuevo Chofer';
   if (id) {
