@@ -1,4 +1,13 @@
-const CACHE = 'bon-v2';
+// Service Worker — estrategia network-first para el app-shell.
+//
+// Toda la app vive dentro de index.html (un único documento con el JS inline),
+// así que basta con que las NAVEGACIONES siempre intenten la red primero: cada
+// deploy se ve al instante online y la PWA sigue funcionando offline cayendo al
+// caché. No hace falta subir un número de versión a mano en cada deploy.
+//
+// Al cambiar la lógica del SW sí conviene subir CACHE (bon-v3 -> bon-v4) para
+// que el navegador detecte el SW nuevo y 'activate' purgue los cachés viejos.
+const CACHE = 'bon-v3';
 const URL_APP = '/';
 
 self.addEventListener('install', e => {
@@ -18,22 +27,42 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
+  const req = e.request;
+  const url = new URL(req.url);
+
   // No cachear las llamadas al backend ni peticiones que no sean GET:
   // deben ir siempre a la red (y la Cache API no admite POST).
-  if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  if (req.method !== 'GET' || url.pathname.startsWith('/api/')) {
     return;
   }
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(resp => {
+
+  // NAVEGACIONES (el app-shell / HTML): network-first.
+  // Siempre traemos la versión fresca; si no hay red, caemos al caché.
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req).then(resp => {
         if (resp && resp.status === 200) {
           const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(URL_APP, clone));
+        }
+        return resp;
+      }).catch(() => caches.match(URL_APP).then(c => c || caches.match(req)))
+    );
+    return;
+  }
+
+  // RESTO de GET (fotos remotas, etc.): stale-while-revalidate.
+  // Respondemos rápido desde caché si existe y refrescamos en segundo plano.
+  e.respondWith(
+    caches.match(req).then(cached => {
+      const fresh = fetch(req).then(resp => {
+        if (resp && resp.status === 200) {
+          const clone = resp.clone();
+          caches.open(CACHE).then(c => c.put(req, clone));
         }
         return resp;
       }).catch(() => cached);
+      return cached || fresh;
     })
   );
 });
