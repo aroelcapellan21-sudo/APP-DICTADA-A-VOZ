@@ -71,6 +71,8 @@ input[type=file]{display:none}
 
 .loader{display:none;flex-direction:column;align-items:center;gap:11px;padding:22px 0}
 .spin{width:38px;height:38px;border:4px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite}
+.prog{width:78%;max-width:280px;height:8px;background:var(--border);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;width:0;background:var(--red);border-radius:99px;transition:width .35s ease}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* Editar productos antes de guardar */
@@ -171,12 +173,25 @@ input[type=file]{display:none}
 #mic-ind.on{display:flex}
 .mpulse{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 1s ease infinite;flex-shrink:0}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.5}}
-#aa-bar{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--yellow-l);border:1px solid var(--yellow);border-radius:8px;font-size:.74rem;color:#333}
-#btn-aa{background:var(--yellow);color:#333;border:none;border-radius:50%;width:26px;height:26px;font-size:.85rem;cursor:pointer;flex-shrink:0}
-#aa-txt{flex:1;font-weight:600}
-.aa-step{display:flex;align-items:center;gap:4px}
-.aa-step button{width:23px;height:23px;border-radius:6px;border:1px solid var(--border);background:var(--white);font-size:.85rem;cursor:pointer}
-#aa-lbl{font-size:.68rem;color:var(--muted);min-width:21px;text-align:center}
+/* Fila de 3 botones del dictado (Anterior / Pausa / Siguiente) */
+.dict3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.dict3 button{padding:14px 6px;border:none;border-radius:12px;color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;line-height:1.15;box-shadow:0 5px 0px rgba(0,0,0,0.25);transition:transform .08s ease,box-shadow .08s ease}
+.dict3 button .bi{font-size:1.3rem}
+.dict3 button:active{transform:translateY(4px);box-shadow:0 1px 0px rgba(0,0,0,0.25)}
+#btn-prev,#btn-next{background:#2e7d32}
+#btn-pausa{background:#d32f2f}
+#btn-pausa.paused{background:#757575}
+#aa-estado{text-align:center;font-size:.72rem;font-weight:700;color:#d32f2f}
+#aa-estado.paused{color:#757575}
+/* Control de tiempo contextual: solo visible con auto-avance Activo */
+#aa-time{display:none;align-items:center;justify-content:center;gap:9px;margin-top:-1px}
+#aa-time.show{display:flex}
+#aa-time button{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-size:1rem;font-weight:700;line-height:1;cursor:pointer}
+#aa-time button:active{transform:scale(.92)}
+#aa-lbl{font-size:.8rem;font-weight:700;color:var(--text);min-width:34px;text-align:center}
+/* Efecto hundido también en Repetir / Reiniciar */
+#btn-repeat,#btn-restart{box-shadow:0 5px 0px rgba(0,0,0,0.25);transition:transform .08s ease,box-shadow .08s ease}
+#btn-repeat:active,#btn-restart:active{transform:translateY(4px);box-shadow:0 1px 0px rgba(0,0,0,0.25)}
 #item-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto}
 .cat-lbl{font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:700;padding:6px 3px 2px;border-bottom:2px solid var(--green);margin-top:3px}
 .irow{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--white);border-radius:8px;border:1px solid var(--border);transition:all .2s}
@@ -255,6 +270,7 @@ input[type=file]{display:none}
       <img id="cap-img" alt="Factura">
       <canvas id="canvas"></canvas>
       <input type="file" id="file-inp" accept="image/*">
+      <input type="file" id="cam-inp" accept="image/*" capture="environment">
       <div class="g3">
         <button class="btn bred" id="btn-cam"><span class="bi">📷</span>Cámara</button>
         <button class="btn byellow" id="btn-file"><span class="bi">🗂</span>Archivo</button>
@@ -273,7 +289,7 @@ input[type=file]{display:none}
     </div>
   </div>
 
-  <div class="loader" id="cargando"><div class="spin"></div><p id="load-txt" style="color:var(--muted);font-size:.86rem">Analizando...</p></div>
+  <div class="loader" id="cargando"><div class="spin"></div><p id="load-txt" style="color:var(--muted);font-size:.86rem">Analizando...</p><div class="prog"><div class="prog-fill" id="prog-fill"></div></div></div>
 
   <!-- EDITAR PRODUCTOS ANTES DE GUARDAR -->
   <div class="card" id="edit-antes-card" style="display:none">
@@ -449,12 +465,14 @@ input[type=file]{display:none}
         <div id="cur-cat">—</div><div id="cur-prod">—</div>
         <div id="cur-qty">—</div><div id="cur-count">—</div>
       </div>
-      <div id="aa-bar">
-        <button id="btn-aa">⏸</button><span id="aa-txt">Avanza en 5s</span>
-        <div class="aa-step"><button id="btn-aa-m">−</button><span id="aa-lbl">5s</span><button id="btn-aa-p">+</button></div>
+      <div class="dict3">
+        <button id="btn-prev"><span class="bi">⏮</span>Anterior</button>
+        <button id="btn-pausa"><span class="bi">⏸</span>Pausa</button>
+        <button id="btn-next"><span class="bi">⏭</span>Siguiente</button>
       </div>
+      <div id="aa-estado">Auto-avance: Activo</div>
+      <div id="aa-time"><button id="btn-aa-m">−</button><span id="aa-lbl">5s</span><button id="btn-aa-p">+</button></div>
       <div id="mic-ind"><div class="mpulse"></div>Di "siguiente" o "repetir"</div>
-      <div class="g1"><button class="btn bred bfull" id="btn-next">➡ Siguiente</button></div>
       <div class="g2"><button class="btn bout" id="btn-repeat">🔁 Repetir</button><button class="btn bout-red" id="btn-restart">↩ Reiniciar</button></div>
       <div class="card" style="margin-top:2px">
         <div class="card-hd">Productos</div>
@@ -540,7 +558,7 @@ let aiProv=localStorage.getItem('bon_prov')||'gemini';
 let ajPwd=localStorage.getItem('bon_pwd')||'2024';
 let allItems=[],curIdx=-1,stream=null,capUrl=null;
 let recognition=null,synth=window.speechSynthesis;
-let manItems=[],aaEnabled=true,aaSecs=5,aaInterval=null,aaRem=0,micOn=false;
+let manItems=[],aaEnabled=true,aaSecs=5,aaInterval=null,aaRem=0,micOn=false,paused=false;
 let chFotoUrl=null,dragSrc=null,activoListaId=null,addProdTarget=null;
 let pendingGuardar=false;
 
@@ -571,7 +589,7 @@ function saveListas(){localStorage.setItem('bon_listas',JSON.stringify(listas));
 function ordenarPorPatron(items){
   if(!patron.length)return items;
   const ord=[];
-  patron.forEach(p=>{const f=items.find(it=>it.nombre.toLowerCase()===p.nombre.toLowerCase());if(f)ord.push(f);});
+  patron.forEach(p=>{const pn=(p.nombre||'').toLowerCase();if(!pn)return;const f=items.find(it=>(it.nombre||'').toLowerCase()===pn);if(f)ord.push(f);});
   items.forEach(it=>{if(!ord.find(o=>o.nombre===it.nombre))ord.push(it);});
   return ord;
 }
@@ -626,7 +644,7 @@ function updModelInfo(){
 }
 
 // ════ CÁMARA ════
-document.getElementById('btn-cam').addEventListener('click',abrirCamara);
+document.getElementById('btn-cam').addEventListener('click',()=>document.getElementById('cam-inp').click());
 document.getElementById('btn-cap').addEventListener('click',capturar);
 document.getElementById('btn-retake').addEventListener('click',()=>{stopCam();abrirCamara();});
 document.getElementById('btn-back-cam').addEventListener('click',()=>{
@@ -654,8 +672,7 @@ function comprimirImagen(dataUrl,maxDim=1600,quality=.8){
     img.src=dataUrl;
   });
 }
-document.getElementById('file-inp').addEventListener('change',e=>{
-  const file=e.target.files[0];if(!file)return;
+function cargarImagen(file){
   const r=new FileReader();
   r.onload=async ev=>{
     capUrl=await comprimirImagen(ev.target.result);
@@ -666,7 +683,15 @@ document.getElementById('file-inp').addEventListener('change',e=>{
     document.getElementById('analyze-row').style.display='grid';
     setBadge('Imagen cargada','');
   };
-  r.readAsDataURL(file);e.target.value='';
+  r.readAsDataURL(file);
+}
+document.getElementById('file-inp').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  cargarImagen(file);e.target.value='';
+});
+document.getElementById('cam-inp').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  cargarImagen(file);e.target.value='';
 });
 async function abrirCamara(){
   try{
@@ -695,6 +720,26 @@ function capturar(){
 function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
 
 // ════ ANALIZAR ════
+// Barra de progreso simulada mientras la IA procesa la foto (la API
+// no expone progreso real, así que avanzamos hasta 90% y completamos
+// al recibir respuesta).
+let progTimer=null;
+function iniciarProgreso(){
+  const f=document.getElementById('prog-fill');
+  let pct=0;f.style.width='0%';
+  clearInterval(progTimer);
+  progTimer=setInterval(()=>{
+    pct=Math.min(pct+(Math.random()*8+2),90);
+    f.style.width=pct+'%';
+    if(pct>=90)clearInterval(progTimer);
+  },350);
+}
+function terminarProgreso(){
+  clearInterval(progTimer);
+  const f=document.getElementById('prog-fill');
+  f.style.width='100%';
+  setTimeout(()=>{f.style.width='0%';},400);
+}
 document.getElementById('btn-analyze').addEventListener('click',analizar);
 async function analizar(){
   if(!capUrl){alert('Captura o carga una imagen.');return;}
@@ -703,6 +748,7 @@ async function analizar(){
   document.getElementById('edit-antes-card').style.display='none';
   document.getElementById('asig-card').style.display='none';
   setBadge('Procesando','proc');
+  iniciarProgreso();
   try{
     const items=(await analizarBackend()).filter(it=>it&&typeof it.nombre==='string'&&it.nombre.trim());
     if(!items||!items.length){
@@ -967,18 +1013,49 @@ function renderItemList(items){
 }
 
 function iniciarDictado(listaId){
-  curIdx=-1;
+  curIdx=-1;paused=false;
   document.getElementById('done-sec').style.display='none';
   document.getElementById('results-sec').style.display='flex';
+  document.getElementById('aa-lbl').textContent=aaSecs+'s';
+  updPausaBtn();updAAEstado();
   startVoice();nextItem(listaId);
 }
 
+// Avanza al siguiente producto. El TTS (speakCur) y el temporizador de
+// auto-avance (startAA) son sistemas independientes: siempre habla al
+// avanzar, pero el temporizador SOLO arranca si NO está en pausa. Así,
+// estando en pausa, ⏭ avanza y dice el producto sin reanudar el auto.
 function nextItem(listaId){
   clearAA();if(curIdx>=0)markDone(curIdx);curIdx++;
   if(curIdx>=allItems.length){finalizarDictado(listaId);return;}
-  updCur();speakCur();if(aaEnabled)startAA(listaId);
+  updCur();speakCur();if(!paused)startAA(listaId);
 }
-function repeatItem(){clearAA();speakCur();if(aaEnabled)startAA(activoListaId);}
+// Retrocede al producto anterior y lo marca como NO completado.
+function prevItem(listaId){
+  clearAA();if(curIdx<=0)return;curIdx--;
+  markUndone(curIdx);
+  updCur();speakCur();if(!paused)startAA(listaId);
+}
+function repeatItem(){clearAA();speakCur();if(!paused)startAA(activoListaId);}
+// Pausa/Reanuda: controla TTS y temporizador, dos sistemas separados.
+function togglePausa(){
+  paused=!paused;
+  if(paused){synth&&synth.cancel();clearAA();}
+  else{speakCur();if(curIdx>=0&&curIdx<allItems.length)startAA(activoListaId);}
+  updPausaBtn();updAAEstado();
+}
+function updPausaBtn(){
+  const b=document.getElementById('btn-pausa');if(!b)return;
+  b.classList.toggle('paused',paused);
+  b.innerHTML=paused?'<span class="bi">▶</span>Reanudar':'<span class="bi">⏸</span>Pausa';
+}
+function updAAEstado(){
+  const e=document.getElementById('aa-estado');
+  if(e){e.classList.toggle('paused',paused);e.textContent=paused?'Auto-avance: Pausado':'Auto-avance: Activo';}
+  // El control de tiempo solo tiene sentido con el auto-avance corriendo:
+  // visible cuando está Activo, oculto cuando está Pausado.
+  const t=document.getElementById('aa-time');if(t)t.classList.toggle('show',!paused);
+}
 function updCur(){
   const it=allItems[curIdx];
   document.getElementById('cur-cat').textContent=it.categoria||'—';
@@ -994,6 +1071,11 @@ function updCur(){
 function markDone(i){
   document.querySelectorAll('.irow').forEach(r=>{
     if(+r.dataset.index===i){r.classList.remove('active');r.classList.add('done');r.querySelector('.ichk').textContent='✓';}
+  });
+}
+function markUndone(i){
+  document.querySelectorAll('.irow').forEach(r=>{
+    if(+r.dataset.index===i){r.classList.remove('done');r.querySelector('.ichk').textContent='';}
   });
 }
 function finalizarDictado(listaId){
@@ -1039,19 +1121,25 @@ function startVoice(){
 function stopVoice(){micOn=false;if(recognition){try{recognition.stop();}catch(e){}}recognition=null;document.getElementById('mic-ind').classList.remove('on');}
 
 // ════ AUTO AVANCE ════
+// Temporizador independiente del TTS. Sigue corriendo en segundo plano con
+// los mismos valores (aaSecs = 5s); ya no tiene barra visible ni controles
+// +/−. Su estado (activo/pausado) lo gobierna el botón ⏯ vía `paused`.
 function startAA(listaId){
-  aaRem=aaSecs;updAATxt();
-  aaInterval=setInterval(()=>{aaRem--;updAATxt();if(aaRem<=0){clearAA();nextItem(listaId);}},1000);
+  aaRem=aaSecs;
+  aaInterval=setInterval(()=>{aaRem--;if(aaRem<=0){clearAA();nextItem(listaId);}},1000);
 }
 function clearAA(){clearInterval(aaInterval);aaInterval=null;}
-function updAATxt(){document.getElementById('aa-txt').textContent=aaEnabled?`Avanza en ${aaRem}s`:'Avance manual';}
-document.getElementById('btn-aa').addEventListener('click',()=>{
-  aaEnabled=!aaEnabled;document.getElementById('btn-aa').textContent=aaEnabled?'⏸':'▶';
-  if(!aaEnabled)clearAA();else if(curIdx>=0&&curIdx<allItems.length)startAA(activoListaId);
-  updAATxt();
-});
-document.getElementById('btn-aa-m').addEventListener('click',()=>{aaSecs=Math.max(2,aaSecs-1);document.getElementById('aa-lbl').textContent=aaSecs+'s';});
-document.getElementById('btn-aa-p').addEventListener('click',()=>{aaSecs=Math.min(30,aaSecs+1);document.getElementById('aa-lbl').textContent=aaSecs+'s';});
+// Ajusta los segundos del auto-avance (2–30s). El cambio se aplica de
+// inmediato: si hay un temporizador corriendo, lo reinicia con el nuevo valor.
+function ajustarAA(delta){
+  aaSecs=Math.min(30,Math.max(2,aaSecs+delta));
+  document.getElementById('aa-lbl').textContent=aaSecs+'s';
+  if(!paused&&aaInterval){clearAA();startAA(activoListaId);}
+}
+document.getElementById('btn-aa-m').addEventListener('click',()=>ajustarAA(-1));
+document.getElementById('btn-aa-p').addEventListener('click',()=>ajustarAA(1));
+document.getElementById('btn-prev').addEventListener('click',()=>prevItem(activoListaId));
+document.getElementById('btn-pausa').addEventListener('click',togglePausa);
 document.getElementById('btn-next').addEventListener('click',()=>nextItem(activoListaId));
 document.getElementById('btn-repeat').addEventListener('click',repeatItem);
 document.getElementById('btn-restart').addEventListener('click',()=>{clearAA();curIdx=-1;renderItemList(allItems);nextItem(activoListaId);});

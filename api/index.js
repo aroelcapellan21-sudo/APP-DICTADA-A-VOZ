@@ -49,7 +49,14 @@ async function analizarGemini({ data, mime, cats }) {
           { inline_data: { mime_type: mime, data } },
           { text: prompt }
         ] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+        // thinkingBudget: 0 desactiva el "thinking" de gemini-2.5-flash, que
+        // por defecto consume el presupuesto de tokens y deja la respuesta sin
+        // texto. maxOutputTokens más alto da margen para facturas largas.
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
       })
     }
   );
@@ -58,7 +65,9 @@ async function analizarGemini({ data, mime, cats }) {
   if (!res.ok) {
     throw { status: res.status, message: d.error?.message || `Error Gemini ${res.status}` };
   }
-  return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  // El texto no siempre está en parts[0]; concatenamos todos los parts con texto.
+  const parts = d.candidates?.[0]?.content?.parts || [];
+  return parts.map(p => p?.text || '').join('').trim();
 }
 
 async function analizarClaude({ data, mime }) {
