@@ -558,6 +558,13 @@ let aiProv=localStorage.getItem('bon_prov')||'gemini';
 let ajPwd=localStorage.getItem('bon_pwd')||'2024';
 let allItems=[],curIdx=-1,stream=null,capUrl=null;
 let recognition=null,synth=window.speechSynthesis;
+// ── Fuente ÚNICA de configuración de lectura (Sección 0). Todos los módulos
+// la consumen vía hablar()/textoProducto(); ningún módulo arma su propio texto.
+const CONFIG_LECTURA = Object.assign(
+  { modo:'categoria', rate:0.95, lang:'es-DO', autoSegs:5 },
+  JSON.parse(localStorage.getItem('bon_cfg_lectura')||'{}')
+);
+function saveCfgLectura(){ localStorage.setItem('bon_cfg_lectura', JSON.stringify(CONFIG_LECTURA)); }
 let manItems=[],aaEnabled=true,aaSecs=5,aaInterval=null,aaRem=0,micOn=false,paused=false;
 let chFotoUrl=null,dragSrc=null,activoListaId=null,addProdTarget=null;
 let pendingGuardar=false;
@@ -1086,18 +1093,26 @@ function finalizarDictado(listaId){
   document.getElementById('results-sec').style.display='none';
   document.getElementById('done-sec').style.display='flex';
   document.getElementById('done-sum').textContent=`${allItems.length} productos de "${l?l.nombre:'la lista'}".`;
-  speak('Lista completa. '+allItems.length+' productos.');
+  hablar('Lista completa. '+allItems.length+' productos.');
   setBadge('Completo','ok');
 }
 
-function speak(txt){
+// Función ÚNICA de dictado (Sección 0). Reemplaza al antiguo speak().
+function hablar(txt){
   if(!synth)return;synth.cancel();
-  const u=new SpeechSynthesisUtterance(txt);u.lang='es-DO';u.rate=.95;
+  const u=new SpeechSynthesisUtterance(txt);
+  u.lang=CONFIG_LECTURA.lang;u.rate=CONFIG_LECTURA.rate;
   u.onstart=()=>setBadge('Hablando','talk');
   u.onend=()=>setBadge('Escuchando','ok');
   synth.speak(u);
 }
-function speakCur(){const it=allItems[curIdx];if(it)speak(`${it.categoria}. ${it.nombre}. Cantidad: ${it.cantidad}`);}
+// Texto de UN producto. Usa texto_voz si existe (campo futuro, Sección 1);
+// si no, cae a it.nombre -> hoy el comportamiento audible es idéntico al previo.
+function textoProducto(it){
+  const voz=(it.texto_voz&&it.texto_voz.trim())?it.texto_voz:it.nombre;
+  return `${it.categoria}. ${voz}. Cantidad: ${it.cantidad}`;
+}
+function speakCur(){const it=allItems[curIdx];if(it)hablar(textoProducto(it));}
 
 // ════ VOZ ════
 function startVoice(){
