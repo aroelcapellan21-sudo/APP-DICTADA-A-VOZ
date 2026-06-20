@@ -83,6 +83,24 @@ input[type=file]{display:none}
 .ped-nom{flex:1;font-size:.83rem;color:var(--text)}
 .ped-qty{font-size:.75rem;color:var(--red);font-weight:700;min-width:58px;text-align:right}
 .ped-del{background:none;border:none;color:var(--muted);font-size:.88rem;cursor:pointer;padding:2px 3px}
+/* Validación post-OCR: franja roja translúcida arriba si la línea es dudosa. */
+.prod-edit-row{flex-direction:column;align-items:stretch;position:relative;overflow:hidden}
+.prod-edit-row.anomalia{box-shadow:inset 0 5px 0 rgba(211,47,47,.5);background:rgba(211,47,47,.06);border-color:rgba(211,47,47,.4)}
+.ped-l1{display:flex;align-items:center;gap:6px}
+.ped-l2{display:flex;align-items:center;gap:8px;margin-top:6px;padding-left:22px;flex-wrap:wrap}
+.ped-st{font-size:.9rem;flex-shrink:0;width:18px;text-align:center}
+.ped-cat-sel{flex-shrink:0;max-width:92px;border:1px solid var(--border);outline:none;border-radius:6px;padding:3px 4px;font-size:.66rem;color:var(--green);font-weight:700;background:var(--white);font-family:inherit}
+/* Detalle plegable de productos por categoría (gestión de Categorías). */
+.cat-det{padding:4px 4px 6px 10px;margin:0 0 4px;border-left:2px solid var(--border)}
+.cat-det-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;font-size:.76rem;color:var(--text);border-bottom:1px dashed var(--border)}
+.cat-det-row:last-child{border-bottom:none}
+.cat-det-tag{font-size:.56rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 5px;flex-shrink:0}
+.cat-det-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-det-sel{flex-shrink:0;max-width:96px;border:1px solid var(--border);outline:none;border-radius:6px;padding:2px 4px;font-size:.64rem;color:var(--green);font-weight:700;background:var(--white);font-family:inherit}
+.ped-nom-in{flex:1;min-width:90px;border:1px solid var(--border);outline:none;border-radius:6px;padding:3px 6px;font-size:.82rem;background:var(--white);color:var(--text);font-family:inherit}
+.ped-fld{display:flex;align-items:center;gap:3px;font-size:.66rem;color:var(--muted)}
+.ped-num-in{width:56px;border:1px solid var(--border);outline:none;border-radius:6px;padding:3px 5px;font-size:.76rem;text-align:right;background:var(--white);font-family:inherit}
+.prod-edit-row.anomalia .ped-num-in,.prod-edit-row.anomalia .ped-nom-in{border-color:rgba(211,47,47,.55)}
 
 /* DESPACHO BURBUJAS */
 .desp-section{display:flex;flex-direction:column;gap:10px}
@@ -153,7 +171,11 @@ input[type=file]{display:none}
 
 .mov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-end;justify-content:center}
 .mov.open{display:flex}
-.msh{background:var(--white);border-radius:20px 20px 0 0;width:100%;max-height:92dvh;overflow-y:auto;padding:16px 14px 32px;display:flex;flex-direction:column;gap:9px}
+/* FAB de dictado minimizado: indica que el dictado sigue en curso. */
+#fab-dictado{display:none;position:fixed;right:16px;bottom:74px;z-index:150;width:60px;height:60px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:0;animation:fabpulse 2s infinite}
+@keyframes fabpulse{0%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,.55)}70%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 13px rgba(211,47,47,0)}100%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,0)}}
+#btn-min-dictado{position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.25rem;line-height:1;cursor:pointer;color:var(--muted);padding:4px;z-index:3}
+.msh{background:var(--white);border-radius:20px 20px 0 0;width:100%;max-height:92dvh;overflow-y:auto;padding:16px 14px 32px;display:flex;flex-direction:column;gap:9px;position:relative}
 .mhdl{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 2px}
 .mtit{font-size:.94rem;font-weight:800;color:var(--red);text-align:center}
 
@@ -194,9 +216,11 @@ input[type=file]{display:none}
 #btn-repeat:active,#btn-restart:active{transform:translateY(4px);box-shadow:0 1px 0px rgba(0,0,0,0.25)}
 #item-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto}
 .cat-lbl{font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:700;padding:6px 3px 2px;border-bottom:2px solid var(--green);margin-top:3px}
-.irow{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--white);border-radius:8px;border:1px solid var(--border);transition:all .2s}
+.irow{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--white);border-radius:8px;border:1px solid var(--border);transition:all .2s;cursor:pointer}
 .irow.done{background:var(--green-l);border-color:#a5d6a7;opacity:.65}
 .irow.active{background:var(--yellow-l);border-color:var(--yellow);box-shadow:0 0 0 2px var(--yellow)}
+.inum{font-size:.66rem;font-weight:800;color:var(--muted);min-width:17px;text-align:center;flex-shrink:0}
+.irow.active .inum{color:var(--red)}
 .ichk{width:19px;height:19px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.62rem;transition:all .2s}
 .irow.done .ichk{background:var(--green);border-color:var(--green);color:white}
 .irow.active .ichk{background:var(--yellow);border-color:var(--yellow);color:#333}
@@ -398,13 +422,17 @@ input[type=file]{display:none}
     <div class="fld"><label>Nueva contraseña</label><input type="password" id="pwd-new" class="inp" placeholder="Nueva"></div>
     <button class="btn bred bfull" id="btn-ch-pwd">🔒 Cambiar contraseña</button>
   </div></div>
+  <div class="aj-sec"><div class="aj-hd">Categorías</div><div class="aj-bd">
+    <div id="aj-cats" style="display:flex;flex-direction:column;gap:4px;margin-bottom:7px"></div>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="aj-cat-nueva" class="inp" placeholder="Nueva categoría" style="flex:1">
+      <button class="btn bgreen" id="btn-aj-add-cat" style="flex:0 0 auto;width:auto;padding:0 14px">+ Agregar</button>
+    </div>
+  </div></div>
   <div class="aj-sec"><div class="aj-hd">Catálogo de productos</div><div class="aj-bd">
     <div id="aj-prods" style="display:flex;flex-direction:column;gap:4px;margin-bottom:7px"></div>
     <div style="display:flex;gap:6px">
-      <select id="aj-cat" class="inp sel" style="flex:0 0 auto;width:115px">
-        <option>Paletas</option><option>Helados</option><option>Conos</option>
-        <option>Vasos</option><option>Bombones</option><option>Sándwiches</option><option>Otros</option>
-      </select>
+      <select id="aj-cat" class="inp sel" style="flex:0 0 auto;width:115px"></select>
       <input type="text" id="aj-prod-nm" class="inp" placeholder="Nombre" style="flex:1">
     </div>
     <button class="btn bgreen bfull" id="btn-aj-add-prod">+ Agregar</button>
@@ -454,6 +482,7 @@ input[type=file]{display:none}
 <!-- MODAL: DICTADO -->
 <div class="mov" id="m-dictado">
   <div class="msh">
+    <button id="btn-min-dictado" title="Minimizar (el dictado sigue)">▽</button>
     <div class="mhdl"></div>
     <div id="ch-banner" style="display:none;align-items:center;gap:10px;background:var(--green-l);border:1.5px solid var(--green);border-radius:12px;padding:9px 13px">
       <div id="cba" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:white;flex-shrink:0;overflow:hidden"></div>
@@ -487,6 +516,8 @@ input[type=file]{display:none}
     </div>
   </div>
 </div>
+<!-- FAB: aparece al minimizar el dictado; al tocarlo vuelve al mismo punto. -->
+<button id="fab-dictado" title="Volver al dictado en curso"><span style="font-size:1.4rem;line-height:1">🔊</span><span style="font-size:.46rem;font-weight:800;letter-spacing:.02em;margin-top:1px">DICTADO</span></button>
 
 <!-- MODAL: ADD PROD (panel y editar antes) -->
 <div class="mov" id="m-add-prod">
@@ -580,6 +611,17 @@ let catalogo=JSON.parse(localStorage.getItem('bon_cat')||'null')||[
   {c:'Sándwiches',n:'Sándwich Helado'},{c:'Otros',n:'Producto Especial'}
 ];
 
+// Lista GESTIONABLE de categorías (fuente única para todos los desplegables).
+// Se siembra con las categorías por defecto ∪ las que ya usan los productos del
+// catálogo, garantizando "Otros" como comodín. Se persiste en bon_categorias.
+let categorias=JSON.parse(localStorage.getItem('bon_categorias')||'null');
+if(!Array.isArray(categorias)||!categorias.length){
+  const base=['Paletas','Helados','Conos','Vasos','Bombones','Sándwiches','Otros'];
+  categorias=[...new Set([...base,...catalogo.map(p=>p.c)])];
+  if(!categorias.includes('Otros'))categorias.push('Otros');
+}
+function saveCategorias(){localStorage.setItem('bon_categorias',JSON.stringify(categorias));}
+
 // ════ HELPERS FECHA ════
 const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -607,6 +649,7 @@ window.addEventListener('load',()=>{
   updModelInfo();
   document.getElementById('lista-nom-inp').value=nombreFecha();
   renderChoferes();renderHistorial();renderPatron();renderCatalogo();
+  renderCategorias();poblarAjCat();
   poblarSelCh();poblarManCat();poblarApCat();setupPWA();setupInstall();
 });
 
@@ -631,7 +674,7 @@ document.getElementById('btn-ver-clave').addEventListener('click',()=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.getElementById('page-ajustes').classList.add('active');
     document.getElementById('aj-prov').value=aiProv;
-    renderCatalogo();
+    renderCatalogo();renderCategorias();poblarAjCat();
   }else{
     document.getElementById('clave-inp').style.borderColor='red';
     setTimeout(()=>document.getElementById('clave-inp').style.borderColor='',1200);
@@ -642,7 +685,12 @@ document.getElementById('clave-inp').addEventListener('keydown',e=>{if(e.key==='
 // ════ MODAL ════
 function abrirMov(id){document.getElementById(id).classList.add('open');}
 function cerrarMov(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.mov').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+document.querySelectorAll('.mov').forEach(m=>m.addEventListener('click',e=>{
+  if(e.target!==m)return;
+  // El dictado no se cierra al tocar fuera: se MINIMIZA (sigue activo + FAB).
+  if(m.id==='m-dictado')minimizarDictado();
+  else m.classList.remove('open');
+}));
 
 // ════ API ════
 document.getElementById('ai-prov').addEventListener('change',function(){aiProv=this.value;localStorage.setItem('bon_prov',aiProv);updModelInfo();});
@@ -779,7 +827,7 @@ async function analizar(){
 }
 
 async function analizarBackend(){
-  const cats=[...new Set(catalogo.map(p=>p.c)),'Otros'].join(', ');
+  const cats=categorias.join(', ');
   const res=await fetch('/api/analyze',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({provider:aiProv,image:capUrl,cats})
@@ -795,18 +843,81 @@ function parseJ(txt){
   return JSON.parse(m[0]);
 }
 
+// ════ VALIDACIÓN POST-OCR ════
+// Convierte un valor leído por el OCR ("1.234,56", "24 unidades", "960") a número.
+function parseNum(v){
+  let s=String(v==null?'':v).replace(/[^\d.,]/g,'');
+  if(!s)return NaN;
+  const m=s.match(/[.,](\d{1,2})$/);            // separador decimal (1-2 díg.) al final
+  if(m){s=s.slice(0,s.length-m[1].length-1).replace(/[.,]/g,'')+'.'+m[1];}
+  else{s=s.replace(/[.,]/g,'');}
+  const n=parseFloat(s);return isNaN(n)?NaN:n;
+}
+// Una línea es VÁLIDA (✅) si: (1) ningún campo quedó con confianza media/baja del
+// OCR —salvo que el usuario ya la haya revisado/editado—, y (2) la cantidad existe
+// y precio×cantidad ≈ total (chequeo matemático secundario, sin impuesto).
+function validarItem(it){
+  if(!it.revisado){
+    for(const c of ['cantidad','precio','total']){
+      const k=String(it['conf_'+c]||'alto').toLowerCase();
+      if(k==='medio'||k==='bajo')return false;
+    }
+  }
+  const q=parseNum(it.cantidad);
+  if(isNaN(q)||q<=0)return false;               // cantidad faltante o inválida
+  const p=parseNum(it.precio),t=parseNum(it.total);
+  if(!isNaN(p)&&!isNaN(t)&&Math.abs(p*q-t)>Math.max(1,t*0.01))return false; // no cuadra
+  return true;
+}
+function hayAnomalias(){return allItems.some(it=>!validarItem(it));}
+// Bloquea "Guardar" mientras haya filas en rojo sin corregir.
+function actualizarBloqueoGuardar(){
+  const b=document.getElementById('btn-guardar');if(!b)return;
+  const bloq=hayAnomalias();
+  b.disabled=bloq;b.style.opacity=bloq?'.5':'';b.style.cursor=bloq?'not-allowed':'';
+  b.title=bloq?'Corrige las filas marcadas en rojo antes de guardar':'';
+}
+
 // ════ EDITAR ANTES DE GUARDAR ════
+function aplicarEstadoFila(d,it){
+  const ok=validarItem(it);
+  d.classList.toggle('anomalia',!ok);
+  const st=d.querySelector('.ped-st');if(st)st.textContent=ok?'✅':'';
+}
 function renderEditAntes(){
   const cont=document.getElementById('edit-antes-list');cont.innerHTML='';
-  // Detectar duplicados — marcar TODOS los que se repiten (incluyendo el primero)
-  const nombres=allItems.map(it=>it.nombre.toLowerCase());
-  const duplicados=nombres.filter((n)=>nombres.filter(x=>x===n).length>1);
+  const nombres=allItems.map(it=>(it.nombre||'').toLowerCase());
+  const duplicados=nombres.filter(n=>nombres.filter(x=>x===n).length>1);
+  const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+  const cats=categorias.slice();
   allItems.forEach((it,i)=>{
-    const esDup=duplicados.includes(it.nombre.toLowerCase());
+    const esDup=duplicados.includes((it.nombre||'').toLowerCase());
+    // La categoría del item se incluye en las opciones aunque no esté en el catálogo.
+    const opts=(cats.includes(it.categoria)?cats:[it.categoria,...cats]);
     const d=document.createElement('div');d.className='prod-edit-row';d.draggable=true;d.dataset.i=i;
-    if(esDup)d.style.cssText='border-color:#d32f2f;background:#ffebee';
-    d.innerHTML=`<span class="ped-drag">⠿</span><span class="ped-cat">${it.categoria}</span><span class="ped-nom" style="${esDup?'color:#d32f2f;font-weight:700':''}">${it.nombre}${esDup?' ⚠️':''}</span><span class="ped-qty">${it.cantidad}</span><button class="ped-del" onclick="delEditAntes(${i})">✕</button>`;
-    d.addEventListener('dragstart',()=>{dragSrc=i;d.classList.add('dragging');});
+    d.innerHTML=
+      `<div class="ped-l1"><span class="ped-drag">⠿</span><span class="ped-st"></span>`+
+      `<select class="ped-cat-sel" data-f="categoria">${opts.map(c=>`<option${c===it.categoria?' selected':''}>${esc(c)}</option>`).join('')}</select>`+
+      `<input class="ped-nom-in" data-f="nombre" value="${esc(it.nombre)}">`+
+      (esDup?`<span title="Nombre repetido" style="color:#d32f2f;flex-shrink:0">⚠️</span>`:'')+
+      `<button class="ped-del" onclick="delEditAntes(${i})">✕</button></div>`+
+      `<div class="ped-l2">`+
+      `<span class="ped-fld">Cant <input class="ped-num-in" data-f="cantidad" value="${esc(it.cantidad)}"></span>`+
+      `<span class="ped-fld">Precio <input class="ped-num-in" data-f="precio" value="${esc(it.precio)}"></span>`+
+      `<span class="ped-fld">Total <input class="ped-num-in" data-f="total" value="${esc(it.total)}"></span>`+
+      `</div>`;
+    // Edición inline de nombre/cantidad/precio/total: marca la fila como revisada
+    // y revalida en vivo (la cantidad/precio/total alimentan la franja roja).
+    d.querySelectorAll('input[data-f]').forEach(inp=>{
+      inp.addEventListener('input',()=>{
+        it[inp.dataset.f]=inp.value;it.revisado=true;
+        aplicarEstadoFila(d,it);actualizarBloqueoGuardar();
+      });
+    });
+    // Categoría: editable, pero NO marca "revisado" (no entra en la validación).
+    const sel=d.querySelector('select[data-f="categoria"]');
+    if(sel)sel.addEventListener('change',()=>{it.categoria=sel.value;});
+    d.addEventListener('dragstart',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){e.preventDefault();return;}dragSrc=i;d.classList.add('dragging');});
     d.addEventListener('dragend',()=>d.classList.remove('dragging'));
     d.addEventListener('dragover',e=>e.preventDefault());
     d.addEventListener('drop',e=>{
@@ -814,8 +925,10 @@ function renderEditAntes(){
       const tmp=allItems[dragSrc];allItems[dragSrc]=allItems[i];allItems[i]=tmp;
       dragSrc=null;renderEditAntes();
     });
+    aplicarEstadoFila(d,it);
     cont.appendChild(d);
   });
+  actualizarBloqueoGuardar();
 }
 window.delEditAntes=function(i){allItems.splice(i,1);renderEditAntes();};
 document.getElementById('btn-edit-add').addEventListener('click',()=>{
@@ -825,6 +938,7 @@ document.getElementById('btn-edit-add').addEventListener('click',()=>{
 // ════ GUARDAR LISTA ════
 document.getElementById('btn-guardar').addEventListener('click',()=>{
   if(!allItems.length){alert('No hay productos en la lista.');return;}
+  if(hayAnomalias()){alert('Hay líneas marcadas en rojo (datos dudosos o que no cuadran). Corrígelas antes de guardar.');return;}
   const chId=document.getElementById('chofer-sel').value;
   const notas=document.getElementById('lista-notas').value.trim();
   // Verificar duplicado
@@ -862,7 +976,9 @@ function guardarListaFinal(chId,notas){
     fecha:new Date().toLocaleString('es-DO'),
     fechaStr:hoyStr(),
     chofer:ch,
-    items:[...allItems],
+    // Se descartan los metadatos de validación (confianza del OCR / revisado);
+    // el nombre y la cantidad se guardan tal cual quedaron tras la revisión.
+    items:allItems.map(({conf_cantidad,conf_precio,conf_total,revisado,...rest})=>rest),
     escuchada:false
   });
   if(listas.length>500)listas=listas.slice(0,500);
@@ -999,7 +1115,7 @@ document.getElementById('btn-mlp-dictar').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-cerrar-dictado').addEventListener('click',()=>{
-  cerrarMov('m-dictado');
+  cerrarMov('m-dictado');ocultarFabDictado();
   stopVoice();clearAA();
   navTo('despacho',document.querySelectorAll('.mnav button')[1]);
   renderDespacho();
@@ -1012,8 +1128,8 @@ function renderItemList(items){
   for(const[cat,prods] of Object.entries(g)){
     const l=document.createElement('div');l.className='cat-lbl';l.textContent=cat;list.appendChild(l);
     prods.forEach(p=>{
-      const r=document.createElement('div');r.className='irow';r.dataset.index=idx++;
-      r.innerHTML=`<div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`;
+      const r=document.createElement('div');r.className='irow';const ord=idx+1;r.dataset.index=idx;idx++;
+      r.innerHTML=`<span class="inum">${ord}</span><div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`;
       list.appendChild(r);
     });
   }
@@ -1021,6 +1137,7 @@ function renderItemList(items){
 
 function iniciarDictado(listaId){
   curIdx=-1;paused=false;
+  ocultarFabDictado();
   document.getElementById('done-sec').style.display='none';
   document.getElementById('results-sec').style.display='flex';
   document.getElementById('aa-lbl').textContent=aaSecs+'s';
@@ -1047,7 +1164,10 @@ function repeatItem(){clearAA();speakCur();if(!paused)startAA(activoListaId);}
 // Pausa/Reanuda: controla TTS y temporizador, dos sistemas separados.
 function togglePausa(){
   paused=!paused;
-  if(paused){synth&&synth.cancel();clearAA();}
+  // Pausa: detiene el auto-avance y lee el producto actual UNA sola vez; luego
+  // queda en silencio (sin loop) hasta Siguiente/Anterior/Reanudar. Reanudar:
+  // lee y reactiva el auto-avance.
+  if(paused){clearAA();speakCur();}
   else{speakCur();if(curIdx>=0&&curIdx<allItems.length)startAA(activoListaId);}
   updPausaBtn();updAAEstado();
 }
@@ -1066,6 +1186,8 @@ function updAAEstado(){
 function updCur(){
   const it=allItems[curIdx];
   document.getElementById('cur-cat').textContent=it.categoria||'—';
+  // La pantalla muestra el nombre crudo de la factura; la pronunciación (vozDe)
+  // se aplica SOLO al audio (speakCur/textoProducto), no a lo que se ve.
   document.getElementById('cur-prod').textContent=it.nombre;
   document.getElementById('cur-qty').textContent=it.cantidad;
   document.getElementById('cur-count').textContent=`Producto ${curIdx+1} de ${allItems.length}`;
@@ -1106,11 +1228,33 @@ function hablar(txt){
   u.onend=()=>setBadge('Escuchando','ok');
   synth.speak(u);
 }
-// Texto de UN producto. Usa texto_voz si existe (campo futuro, Sección 1);
-// si no, cae a it.nombre -> hoy el comportamiento audible es idéntico al previo.
+// Sustitución de voz (Sección 1): texto_voz vive SOLO en el Patrón y se
+// resuelve por lookup AL HABLAR (mismo macheo por nombre que ordenarPorPatron).
+// Nunca se escribe sobre el item guardado, así el nombre de la lista sigue
+// fiel a como llegó en la factura original.
+function vozDe(it){
+  const nom=(it.nombre||'').toLowerCase();
+  const p=patron.find(x=>(x.nombre||'').toLowerCase()===nom);
+  return (p&&p.texto_voz&&p.texto_voz.trim())?p.texto_voz.trim():it.nombre;
+}
+// Cantidad para el AUDIO: las cantidades tipo código (con "/", ej. 24/1, 32/1)
+// no se pronuncian; las cantidades simples sí. La pantalla las muestra completas.
+function cantidadVoz(c){
+  c=(c==null?'':String(c)).trim();
+  if(!c||c.includes('/'))return '';
+  return ` Cantidad: ${c}.`;
+}
+// Quita códigos de empaque tipo "32/1", "24/1" del texto que se va a HABLAR.
+// Esos códigos vienen DENTRO del nombre (p.ej. "Paleta Choco Mani 32/1"), por
+// eso filtrarlos solo en la cantidad no alcanzaba. No altera el nombre mostrado
+// ni el guardado: solo limpia lo que entra al speechSynthesis.
+function limpiarVoz(txt){
+  return String(txt==null?'':txt).replace(/\d+\s*\/\s*\d+/g,' ').replace(/\s{2,}/g,' ').trim();
+}
+// Texto de UN producto. Usa la voz del Patrón si existe; si no, el nombre crudo
+// -> el comportamiento audible es idéntico al previo cuando no hay texto_voz.
 function textoProducto(it){
-  const voz=(it.texto_voz&&it.texto_voz.trim())?it.texto_voz:it.nombre;
-  return `${it.categoria}. ${voz}. Cantidad: ${it.cantidad}`;
+  return `${it.categoria}. ${limpiarVoz(vozDe(it))}.${cantidadVoz(it.cantidad)}`;
 }
 function speakCur(){const it=allItems[curIdx];if(it)hablar(textoProducto(it));}
 
@@ -1121,6 +1265,9 @@ function startVoice(){
   recognition=new SR();recognition.lang='es-DO';recognition.continuous=true;recognition.interimResults=false;
   recognition.onstart=()=>{document.getElementById('mic-ind').classList.add('on');setBadge('Escuchando','ok');micOn=true;};
   recognition.onresult=e=>{
+    // Ignora comandos MIENTRAS el TTS está hablando: evita el loop por eco del
+    // propio audio. En pausa los comandos SÍ funcionan (repetir bajo demanda).
+    if(synth&&synth.speaking)return;
     const t=e.results[e.results.length-1][0].transcript.toLowerCase().trim();
     if(t.includes('siguiente')||t.includes('próximo'))nextItem(activoListaId);
     else if(t.includes('repetir')||t.includes('repite'))repeatItem();
@@ -1140,6 +1287,7 @@ function stopVoice(){micOn=false;if(recognition){try{recognition.stop();}catch(e
 // los mismos valores (aaSecs = 5s); ya no tiene barra visible ni controles
 // +/−. Su estado (activo/pausado) lo gobierna el botón ⏯ vía `paused`.
 function startAA(listaId){
+  clearAA();   // garantiza un único temporizador (evita lecturas en loop)
   aaRem=aaSecs;
   aaInterval=setInterval(()=>{aaRem--;if(aaRem<=0){clearAA();nextItem(listaId);}},1000);
 }
@@ -1158,6 +1306,46 @@ document.getElementById('btn-pausa').addEventListener('click',togglePausa);
 document.getElementById('btn-next').addEventListener('click',()=>nextItem(activoListaId));
 document.getElementById('btn-repeat').addEventListener('click',repeatItem);
 document.getElementById('btn-restart').addEventListener('click',()=>{clearAA();curIdx=-1;renderItemList(allItems);nextItem(activoListaId);});
+
+// ════ SALTAR A UN PRODUCTO (tocar una fila de #item-list) ════
+// Salta directo a ese producto y continúa desde ahí, sin recorrer uno a uno.
+// Respeta la pausa igual que Anterior/Siguiente (lee una vez; el auto-avance
+// solo se reanuda si NO está en pausa). No reescribe ningún dato guardado.
+function jumpTo(idx){
+  if(idx<0||idx>=allItems.length)return;
+  clearAA();curIdx=idx;
+  // Recalcula marcas: anteriores = hechos ✓, posteriores = pendientes.
+  document.querySelectorAll('.irow').forEach(r=>{
+    const i=+r.dataset.index,chk=r.querySelector('.ichk');
+    if(i<curIdx){r.classList.add('done');if(chk)chk.textContent='✓';}
+    else{r.classList.remove('done');if(chk)chk.textContent='';}
+  });
+  updCur();speakCur();if(!paused)startAA(activoListaId);
+}
+// Listener delegado: sobrevive al re-render de renderItemList (que recrea filas).
+document.getElementById('item-list').addEventListener('click',e=>{
+  const row=e.target.closest('.irow');if(!row)return;
+  jumpTo(+row.dataset.index);
+});
+
+// ════ MINIMIZAR / MAXIMIZAR DICTADO ════
+// Minimizar solo OCULTA el modal (no detiene TTS ni auto-avance) y muestra un
+// FAB. Maximizar lo reabre en el mismo punto: mismo producto, progreso y estado
+// de pausa. El estado vive en variables JS, así que nada se reinicia.
+function ocultarFabDictado(){const f=document.getElementById('fab-dictado');if(f)f.style.display='none';}
+function minimizarDictado(){
+  cerrarMov('m-dictado');
+  const f=document.getElementById('fab-dictado');if(f)f.style.display='flex';
+}
+function maximizarDictado(){
+  ocultarFabDictado();
+  abrirMov('m-dictado');
+  // Reactiva el micrófono si el dictado sigue en curso (la pantalla de
+  // resultados está visible) y el reconocimiento se había detenido al minimizar.
+  if(document.getElementById('results-sec').style.display!=='none'&&!micOn)startVoice();
+}
+document.getElementById('btn-min-dictado').addEventListener('click',minimizarDictado);
+document.getElementById('fab-dictado').addEventListener('click',maximizarDictado);
 
 // ════ CHOFERES ════
 function renderChoferes(){
@@ -1227,7 +1415,7 @@ document.getElementById('btn-save-ch').addEventListener('click',()=>{
 
 // ════ MANUAL ════
 function poblarManCat(){
-  const cats=[...new Set(catalogo.map(p=>p.c)),'Otros'];
+  const cats=categorias.slice();
   const sel=document.getElementById('m-cat');
   sel.innerHTML=cats.map(c=>`<option>${c}</option>`).join('');
   poblarManProd(sel.value);
@@ -1270,7 +1458,7 @@ document.getElementById('btn-m-start').addEventListener('click',()=>{
 
 // ════ AP CAT ════
 function poblarApCat(){
-  const cats=[...new Set(catalogo.map(p=>p.c)),'Otros'];
+  const cats=categorias.slice();
   const sel=document.getElementById('ap-cat');
   sel.innerHTML=cats.map(c=>`<option>${c}</option>`).join('');
   poblarApProd(sel.value);
@@ -1349,10 +1537,11 @@ function renderPatron(){
   const cont=document.getElementById('pat-list');
   if(!patron.length){cont.innerHTML='<div class="empty"><span>📝</span>Patrón vacío — define el orden base</div>';return;}
   cont.innerHTML='';
-  const cats=[...new Set(catalogo.map(p=>p.c)),'Otros'];
+  const cats=categorias.slice();
   patron.forEach((it,i)=>{
     const d=document.createElement('div');d.className='pat-row';d.draggable=true;d.dataset.i=i;
-    d.innerHTML=`<span class="pat-drag">⠿</span><select class="pc" data-i="${i}" style="border:none;outline:none;background:transparent;font-size:.68rem;color:var(--green);font-weight:700;max-width:82px">${cats.map(c=>`<option${c===it.categoria?' selected':''}>${c}</option>`).join('')}</select><input class="pn" data-i="${i}" value="${it.nombre}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)"><input class="pq" data-i="${i}" value="${it.cantidad||''}" placeholder="Cant." style="border:none;outline:none;width:72px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent"><button class="pat-del" onclick="delPat(${i})">✕</button>`;
+    d.style.flexDirection='column';d.style.alignItems='stretch';
+    d.innerHTML=`<div style="display:flex;align-items:center;gap:6px"><span class="pat-drag">⠿</span><select class="pc" data-i="${i}" style="border:none;outline:none;background:transparent;font-size:.68rem;color:var(--green);font-weight:700;max-width:82px">${cats.map(c=>`<option${c===it.categoria?' selected':''}>${c}</option>`).join('')}</select><input class="pn" data-i="${i}" value="${it.nombre}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)"><input class="pq" data-i="${i}" value="${it.cantidad||''}" placeholder="Cant." style="border:none;outline:none;width:72px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent"><button class="pat-del" onclick="delPat(${i})">✕</button></div><div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:22px"><span style="font-size:.78rem;flex-shrink:0">🔊</span><input class="pv" data-i="${i}" value="${it.texto_voz||''}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic"></div>`;
     d.addEventListener('dragstart',()=>{dragSrc=i;d.classList.add('dragging');});
     d.addEventListener('dragend',()=>d.classList.remove('dragging'));
     d.addEventListener('dragover',e=>e.preventDefault());
@@ -1366,6 +1555,9 @@ function renderPatron(){
   cont.querySelectorAll('.pc').forEach(el=>el.addEventListener('change',e=>{patron[+e.target.dataset.i].categoria=e.target.value;savePat();}));
   cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].nombre=e.target.value;savePat();}));
   cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].cantidad=e.target.value;savePat();}));
+  // texto_voz (Sección 1): lo escribe el usuario a mano, opcional. Vacío => se
+  // lee el nombre crudo. Vive solo en el Patrón; no se sugiere automáticamente.
+  cont.querySelectorAll('.pv').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].texto_voz=e.target.value.trim();savePat();}));
 }
 window.delPat=function(i){patron.splice(i,1);savePat();renderPatron();};
 function savePat(){localStorage.setItem('bon_pat',JSON.stringify(patron));}
@@ -1414,6 +1606,97 @@ function renderCatalogo(){
     cont.appendChild(d);
   });
 }
+
+// ════ GESTIÓN DE CATEGORÍAS ════
+// Pobla el desplegable de categoría del "agregar producto" desde la lista única.
+function poblarAjCat(){
+  const s=document.getElementById('aj-cat');if(!s)return;
+  const prev=s.value;
+  s.innerHTML=categorias.map(c=>`<option>${c}</option>`).join('');
+  if(categorias.includes(prev))s.value=prev;
+}
+function renderCategorias(){
+  const cont=document.getElementById('aj-cats');if(!cont)return;cont.innerHTML='';
+  const esc=v=>String(v==null?'':v).replace(/[<>&]/g,s=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]));
+  categorias.forEach((c,i)=>{
+    const prot=(c==='Otros');               // comodín: no se borra ni renombra
+    const u=usosCategoria(c);
+    const wrap=document.createElement('div');
+    const d=document.createElement('div');d.className='prod-aj-row';
+    d.innerHTML=`<span style="flex:1;color:var(--green);font-weight:700;font-size:.78rem">${esc(c)}</span>`+
+      (u.total?`<button class="cat-ver" data-i="${i}" style="background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.62rem;color:var(--muted);padding:2px 6px;margin-right:4px">${u.total} en uso ▸</button>`
+              :`<span style="font-size:.62rem;color:var(--muted);margin-right:4px">sin uso</span>`)+
+      (prot?`<span style="font-size:.62rem;color:var(--muted)">comodín</span>`
+           :`<button class="cat-aj-btn" onclick="renomCat(${i})" title="Renombrar" style="background:none;border:none;cursor:pointer;font-size:.85rem;padding:2px 4px">✏️</button>`+
+            `<button class="cat-aj-btn" onclick="delCat(${i})" title="Borrar" style="background:none;border:none;cursor:pointer;color:#d32f2f;font-size:.85rem;padding:2px 4px">✕</button>`);
+    wrap.appendChild(d);
+    if(u.total){
+      // Detalle plegable: productos del catálogo y del patrón que usan la categoría,
+      // cada uno con un desplegable para REASIGNARLO a otra categoría ahí mismo.
+      const det=document.createElement('div');det.className='cat-det';det.dataset.i=i;det.style.display='none';
+      const opciones=act=>categorias.map(x=>`<option${x===act?' selected':''}>${esc(x)}</option>`).join('');
+      const fila=(nom,src,idx)=>`<div class="cat-det-row"><span class="cat-det-nom">${esc(nom)}</span>`+
+        `<span class="cat-det-tag"${src==='pat'?' style="color:var(--red);border-color:var(--red)"':''}>${src==='cat'?'catálogo':'patrón'}</span>`+
+        `<select class="cat-det-sel" data-src="${src}" data-idx="${idx}" title="Reasignar categoría">${opciones(c)}</select></div>`;
+      const filas=[];
+      catalogo.forEach((p,ci)=>{if(p.c===c)filas.push(fila(p.n,'cat',ci));});
+      patron.forEach((p,pi)=>{if(p.categoria===c)filas.push(fila(p.nombre,'pat',pi));});
+      det.innerHTML=filas.join('');
+      // Reasignación inline: actualiza el producto, persiste y refresca todo.
+      det.querySelectorAll('.cat-det-sel').forEach(sel=>sel.addEventListener('change',()=>{
+        const nueva=sel.value,idx=+sel.dataset.idx;
+        if(sel.dataset.src==='cat'){catalogo[idx].c=nueva;localStorage.setItem('bon_cat',JSON.stringify(catalogo));}
+        else{patron[idx].categoria=nueva;savePat();}
+        refrescarCategorias();renderCatalogo();
+      }));
+      wrap.appendChild(det);
+    }
+    cont.appendChild(wrap);
+  });
+  // Toggle de cada lista plegable.
+  cont.querySelectorAll('.cat-ver').forEach(b=>b.addEventListener('click',()=>{
+    const det=cont.querySelector('.cat-det[data-i="'+b.dataset.i+'"]');if(!det)return;
+    const abrir=det.style.display==='none';
+    det.style.display=abrir?'block':'none';
+    b.innerHTML=b.innerHTML.replace(/[▸▾]/,abrir?'▾':'▸');
+  }));
+}
+// Cuántos productos del catálogo y del patrón usan una categoría.
+function usosCategoria(c){
+  const enCat=catalogo.filter(p=>p.c===c).length;
+  const enPat=patron.filter(p=>p.categoria===c).length;
+  return {enCat,enPat,total:enCat+enPat};
+}
+// Refresca la lista y TODOS los desplegables que consumen categorías.
+function refrescarCategorias(){
+  renderCategorias();poblarAjCat();poblarManCat();poblarApCat();
+  if(document.getElementById('edit-antes-card').style.display!=='none')renderEditAntes();
+  renderPatron();
+}
+window.delCat=function(i){
+  const c=categorias[i];if(c==='Otros')return;
+  const u=usosCategoria(c);
+  if(u.total>0){alert(`No se puede borrar "${c}": la usan ${u.enCat} producto(s) del catálogo y ${u.enPat} del patrón. Reasígnalos a otra categoría primero.`);return;}
+  if(!confirm(`¿Borrar la categoría "${c}"?`))return;
+  categorias.splice(i,1);saveCategorias();refrescarCategorias();
+};
+window.renomCat=function(i){
+  const viejo=categorias[i];if(viejo==='Otros')return;
+  const nuevo=(prompt('Nuevo nombre para la categoría:',viejo)||'').trim();
+  if(!nuevo||nuevo===viejo)return;
+  if(categorias.some((c,j)=>j!==i&&c.toLowerCase()===nuevo.toLowerCase())){alert('Ya existe una categoría con ese nombre.');return;}
+  categorias[i]=nuevo;saveCategorias();
+  // Propaga a catálogo y patrón; el historial NO se toca (registro fiel).
+  catalogo.forEach(p=>{if(p.c===viejo)p.c=nuevo;});localStorage.setItem('bon_cat',JSON.stringify(catalogo));
+  patron.forEach(p=>{if(p.categoria===viejo)p.categoria=nuevo;});savePat();
+  refrescarCategorias();renderCatalogo();
+};
+document.getElementById('btn-aj-add-cat').addEventListener('click',()=>{
+  const inp=document.getElementById('aj-cat-nueva');const v=(inp.value||'').trim();
+  if(!v){alert('Escribe el nombre de la categoría.');return;}
+  if(categorias.some(c=>c.toLowerCase()===v.toLowerCase())){alert('Esa categoría ya existe.');return;}
+  categorias.push(v);saveCategorias();inp.value='';refrescarCategorias();
+});
 window.delProd=function(i){catalogo.splice(i,1);localStorage.setItem('bon_cat',JSON.stringify(catalogo));renderCatalogo();poblarManCat();poblarApCat();};
 document.getElementById('btn-aj-add-prod').addEventListener('click',()=>{
   const c=document.getElementById('aj-cat').value,n=document.getElementById('aj-prod-nm').value.trim();

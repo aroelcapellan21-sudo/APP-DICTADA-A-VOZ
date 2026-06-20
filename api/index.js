@@ -37,7 +37,11 @@ async function analizarGemini({ data, mime, cats }) {
     throw { status: 500, message: 'GEMINI_API_KEY no está configurada en el servidor.' };
   }
   const categorias = cats || 'Otros';
-  const prompt = `Eres un lector de facturas de helados BON de Polar Breeze, S.R.L. Esta factura tiene columnas: Cant (cantidad), Descripción (nombre del producto), Precio, Total. Extrae TODOS los productos con su cantidad. Responde SOLO con JSON válido sin texto adicional: [{"categoria":"Paletas","nombre":"Paleta Choco Mani 32/1","cantidad":"8"}]. Categorías posibles: ${categorias}. Si no puedes determinar la categoría usa "Otros".`;
+  const prompt = `Eres un lector de facturas de helados BON de Polar Breeze, S.R.L. Esta factura tiene columnas: Cant (cantidad), Descripción (nombre del producto), Precio, Total. Extrae TODOS los productos con cantidad, precio y total.
+
+Por cada producto indica además tu nivel de CONFIANZA al leer cada número, con el valor "alto", "medio" o "bajo": conf_cantidad, conf_precio, conf_total. REGLA CRÍTICA: si un número está borroso, en letra pequeña, ambiguo o dudoso (p.ej. confundir 18 con 19, o 31 con 21), NO adivines el valor más probable: baja su confianza a "medio" o "bajo". Si un campo no se puede leer, su confianza es "bajo".
+
+Responde SOLO con JSON válido sin texto adicional: [{"categoria":"Paletas","nombre":"Paleta Choco Mani 32/1","cantidad":"8","precio":"120","total":"960","conf_cantidad":"alto","conf_precio":"alto","conf_total":"alto"}]. Categorías posibles: ${categorias}. Si no puedes determinar la categoría usa "Otros".`;
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
@@ -85,10 +89,10 @@ async function analizarClaude({ data, mime }) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mime, data } },
-        { type: 'text', text: 'Analiza esta factura BON. JSON solo: [{"categoria":"Paletas","nombre":"Paleta Coco","cantidad":"24 unidades"}]' }
+        { type: 'text', text: 'Analiza esta factura BON (columnas: Cant, Descripción, Precio, Total). Por cada producto extrae cantidad, precio y total, y tu nivel de CONFIANZA al leer cada número ("alto"/"medio"/"bajo"): conf_cantidad, conf_precio, conf_total. REGLA CRÍTICA: si un número está borroso o dudoso (p.ej. confundir 18 con 19, o 31 con 21), NO adivines: usa "medio" o "bajo". Si no se puede leer, confianza "bajo". JSON solo: [{"categoria":"Paletas","nombre":"Paleta Coco","cantidad":"24","precio":"50","total":"1200","conf_cantidad":"alto","conf_precio":"alto","conf_total":"alto"}]' }
       ] }]
     })
   });
