@@ -157,6 +157,21 @@ input[type=file]{display:none}
 .pat-nm{flex:1;font-size:.82rem;color:var(--text)}
 .pat-qt{width:74px;text-align:right;font-size:.76rem;color:var(--red);font-weight:700}
 .pat-del{background:none;border:none;color:var(--muted);font-size:.88rem;cursor:pointer;padding:2px 3px}
+/* Patrón agrupado por categoría + arrastre táctil (orden dentro de categoría
+   y orden entre categorías). Las manijas usan touch-action:none para que el
+   dedo arrastre en vez de hacer scroll. */
+.pat-cat-group{margin-bottom:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg)}
+.pat-cat-group.drop-cat{box-shadow:inset 0 0 0 2px var(--green)}
+.pat-cat-head{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--green-l);border-bottom:1px solid var(--border)}
+.pat-cat-name{font-size:.74rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.04em;flex:1}
+.pat-cat-add{flex-shrink:0;width:24px;height:24px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:1rem;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pat-cat-empty{font-size:.72rem;color:var(--muted);font-style:italic;padding:8px 10px;text-align:center}
+.pat-cat-grip{font-size:.95rem;color:var(--green);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;padding:2px 3px;flex-shrink:0}
+.pat-grip-row,.pat-grip-move{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;flex-shrink:0;padding:2px 3px;font-size:.9rem;color:var(--muted)}
+.pat-grip-move{color:var(--green)}
+.pat-row.arr{opacity:.45}
+.pat-row.drop-row{box-shadow:0 -2px 0 0 var(--green)}
+.drag-ghost{position:fixed;z-index:9999;pointer-events:none;background:var(--white);border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:.8rem;font-weight:700;color:var(--text);box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:.95}
 
 .inst-hero{background:linear-gradient(135deg,var(--red),#b71c1c);border-radius:16px;padding:17px;color:white;text-align:center}
 .inst-hero h3{font-size:.98rem;margin-bottom:3px}
@@ -638,9 +653,23 @@ function saveListas(){localStorage.setItem('bon_listas',JSON.stringify(listas));
 function ordenarPorPatron(items){
   if(!patron.length)return items;
   const ord=[];
-  patron.forEach(p=>{const pn=(p.nombre||'').toLowerCase();if(!pn)return;const f=items.find(it=>(it.nombre||'').toLowerCase()===pn);if(f)ord.push(f);});
-  items.forEach(it=>{if(!ord.find(o=>o.nombre===it.nombre))ord.push(it);});
+  // Recorre el Patrón en su orden de lectura final (categoría, orden), no por
+  // índice de array: así el orden es el que definió el usuario, fijo por factura.
+  patronOrdenado().forEach(p=>{const pn=(p.nombre||'').toLowerCase();if(!pn)return;const f=items.find(it=>(it.nombre||'').toLowerCase()===pn);if(f&&!ord.includes(f))ord.push(f);});
+  items.forEach(it=>{if(!ord.includes(it))ord.push(it);});
   return ord;
+}
+// Reagrupa por categoría para el modo de lectura por categoría (Sección 2).
+// 'items' ya viene en orden de Patrón: respetamos ese orden DENTRO de cada
+// categoría, y las categorías quedan en el orden de su primera aparición.
+function agruparPorCategoria(items){
+  const grupos=[],pos={};
+  items.forEach(it=>{
+    const c=it.categoria||'Otros';
+    if(pos[c]===undefined){pos[c]=grupos.length;grupos.push([]);}
+    grupos[pos[c]].push(it);
+  });
+  return [].concat(...grupos);
 }
 
 // ════ INIT ════
@@ -1081,13 +1110,19 @@ document.getElementById('btn-ap-add').addEventListener('click',()=>{
   const cat=document.getElementById('ap-cat').value;
   const nm=document.getElementById('ap-nm').value.trim()||document.getElementById('ap-prod').value;
   const qty=document.getElementById('ap-qty').value.trim();
-  if(!nm||!qty){alert('Completa producto y cantidad.');return;}
+  if(!nm){alert('Indica el producto.');return;}
+  // En el Patrón la cantidad es opcional (se define por factura); en el resto sí.
+  if(addProdTarget!=='patron'&&!qty){alert('Completa producto y cantidad.');return;}
   if(addProdTarget==='antes'){
     allItems.push({categoria:cat,nombre:nm,cantidad:qty});
     renderEditAntes();
   } else if(addProdTarget==='panel'){
     const l=listas.find(x=>x.id==activoListaId);
     if(l){l.items.push({categoria:cat,nombre:nm,cantidad:qty});saveListas();renderPanelEditList(l.items,activoListaId);}
+  } else if(addProdTarget==='patron'){
+    const c=cat||'Otros';
+    patron.push({categoria:c,nombre:nm,cantidad:qty,orden:siguienteOrden(c)});
+    savePat();renderPatron();
   }
   document.getElementById('ap-nm').value='';document.getElementById('ap-qty').value='';
   cerrarMov('m-add-prod');
@@ -1137,6 +1172,10 @@ function renderItemList(items){
 
 function iniciarDictado(listaId){
   curIdx=-1;paused=false;
+  // Modo categoría (Sección 2): reagrupa la copia de trabajo por categoría y
+  // re-renderiza, para que el orden en pantalla coincida con el del audio. No
+  // toca la lista guardada (allItems aquí es una copia del dictado).
+  if(CONFIG_LECTURA.modo==='categoria'){allItems=agruparPorCategoria(allItems);renderItemList(allItems);}
   ocultarFabDictado();
   document.getElementById('done-sec').style.display='none';
   document.getElementById('results-sec').style.display='flex';
@@ -1152,23 +1191,24 @@ function iniciarDictado(listaId){
 function nextItem(listaId){
   clearAA();if(curIdx>=0)markDone(curIdx);curIdx++;
   if(curIdx>=allItems.length){finalizarDictado(listaId);return;}
-  updCur();speakCur();if(!paused)startAA(listaId);
+  updCur();const chime=speakCur();if(!paused)startAA(listaId,chime?2:0);
 }
-// Retrocede al producto anterior y lo marca como NO completado.
+// Retrocede al producto anterior y lo marca como NO completado. Sin chime
+// (la dirección hacia atrás no necesita la señal de cambio de categoría).
 function prevItem(listaId){
   clearAA();if(curIdx<=0)return;curIdx--;
   markUndone(curIdx);
-  updCur();speakCur();if(!paused)startAA(listaId);
+  updCur();speakCur({sinChime:true});if(!paused)startAA(listaId);
 }
-function repeatItem(){clearAA();speakCur();if(!paused)startAA(activoListaId);}
+function repeatItem(){clearAA();speakCur({sinChime:true});if(!paused)startAA(activoListaId);}
 // Pausa/Reanuda: controla TTS y temporizador, dos sistemas separados.
 function togglePausa(){
   paused=!paused;
   // Pausa: detiene el auto-avance y lee el producto actual UNA sola vez; luego
   // queda en silencio (sin loop) hasta Siguiente/Anterior/Reanudar. Reanudar:
   // lee y reactiva el auto-avance.
-  if(paused){clearAA();speakCur();}
-  else{speakCur();if(curIdx>=0&&curIdx<allItems.length)startAA(activoListaId);}
+  if(paused){clearAA();speakCur({sinChime:true});}
+  else{speakCur({sinChime:true});if(curIdx>=0&&curIdx<allItems.length)startAA(activoListaId);}
   updPausaBtn();updAAEstado();
 }
 function updPausaBtn(){
@@ -1256,7 +1296,64 @@ function limpiarVoz(txt){
 function textoProducto(it){
   return `${it.categoria}. ${limpiarVoz(vozDe(it))}.${cantidadVoz(it.cantidad)}`;
 }
-function speakCur(){const it=allItems[curIdx];if(it)hablar(textoProducto(it));}
+// ─── Modo de lectura POR CATEGORÍA (Sección 2) ───
+// Cantidad en formato "cantidad, " (precede al nombre). Las cantidades tipo
+// código (con "/", ej. 24/1) no se pronuncian -> la línea queda solo el nombre.
+function cantidadVozCat(c){
+  c=(c==null?'':String(c)).trim();
+  if(!c||c.includes('/'))return '';
+  return c+', ';
+}
+// ¿El item en la posición i abre una categoría nueva respecto del anterior?
+function esPrimeroDeCat(i){
+  return i===0 || (allItems[i-1]||{}).categoria!==(allItems[i]||{}).categoria;
+}
+// Texto hablado de un producto en modo categoría: el encabezado de categoría se
+// dice UNA sola vez (al abrir el grupo); el resto son solo "cantidad, nombre".
+function textoProductoCat(it,primero){
+  const cuerpo=`${cantidadVozCat(it.cantidad)}${limpiarVoz(vozDe(it))}`;
+  return primero ? `${it.categoria}. ${cuerpo}` : cuerpo;
+}
+
+// ─── Chime de transición entre categorías (Web Audio, generado) ───
+let audioCtx=null;
+function ensureAudio(){
+  if(!audioCtx){try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){audioCtx=null;}}
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+// Desbloquea el audio en la primera interacción del usuario (requisito iOS).
+['click','touchstart'].forEach(ev=>document.addEventListener(ev,ensureAudio,{once:true}));
+const CHIME_MS=1200;
+// Chime corto (~1.2s, dos notas ascendentes). Llama cb() al terminar.
+function sonarTransicion(cb){
+  const ctx=ensureAudio();
+  if(!ctx){if(cb)setTimeout(cb,200);return;}
+  const t0=ctx.currentTime,notas=[{f:660,t:0},{f:880,t:0.38}];
+  notas.forEach(n=>{
+    const osc=ctx.createOscillator(),g=ctx.createGain();
+    osc.type='sine';osc.frequency.value=n.f;osc.connect(g);g.connect(ctx.destination);
+    const s=t0+n.t;
+    g.gain.setValueAtTime(0.0001,s);
+    g.gain.exponentialRampToValueAtTime(0.25,s+0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001,s+0.5);
+    osc.start(s);osc.stop(s+0.52);
+  });
+  if(cb)setTimeout(cb,CHIME_MS);
+}
+
+// Lee el producto actual. En modo categoría: encabezado al abrir grupo y chime
+// de transición ANTES de anunciar la categoría nueva. opts.sinChime evita el
+// chime en re-lecturas/saltos (repetir, pausa, jumpTo). Devuelve true si sonó.
+function speakCur(opts){
+  const it=allItems[curIdx];if(!it)return false;
+  if(CONFIG_LECTURA.modo!=='categoria'){hablar(textoProducto(it));return false;}
+  const primero=esPrimeroDeCat(curIdx);
+  const texto=textoProductoCat(it,primero);
+  const conChime=primero && curIdx>0 && !(opts&&opts.sinChime);
+  if(conChime){sonarTransicion(()=>hablar(texto));return true;}
+  hablar(texto);return false;
+}
 
 // ════ VOZ ════
 function startVoice(){
@@ -1286,9 +1383,11 @@ function stopVoice(){micOn=false;if(recognition){try{recognition.stop();}catch(e
 // Temporizador independiente del TTS. Sigue corriendo en segundo plano con
 // los mismos valores (aaSecs = 5s); ya no tiene barra visible ni controles
 // +/−. Su estado (activo/pausado) lo gobierna el botón ⏯ vía `paused`.
-function startAA(listaId){
+function startAA(listaId,extraSegs){
   clearAA();   // garantiza un único temporizador (evita lecturas en loop)
-  aaRem=aaSecs;
+  // extraSegs compensa la duración del chime de transición, para que el primer
+  // producto de una categoría conserve su ventana completa de lectura.
+  aaRem=aaSecs+(extraSegs||0);
   aaInterval=setInterval(()=>{aaRem--;if(aaRem<=0){clearAA();nextItem(listaId);}},1000);
 }
 function clearAA(){clearInterval(aaInterval);aaInterval=null;}
@@ -1320,7 +1419,7 @@ function jumpTo(idx){
     if(i<curIdx){r.classList.add('done');if(chk)chk.textContent='✓';}
     else{r.classList.remove('done');if(chk)chk.textContent='';}
   });
-  updCur();speakCur();if(!paused)startAA(activoListaId);
+  updCur();speakCur({sinChime:true});if(!paused)startAA(activoListaId);
 }
 // Listener delegado: sobrevive al re-render de renderItemList (que recrea filas).
 document.getElementById('item-list').addEventListener('click',e=>{
@@ -1469,6 +1568,18 @@ function poblarApProd(cat){
 }
 document.getElementById('ap-cat').addEventListener('change',function(){poblarApProd(this.value);});
 document.getElementById('ap-prod').addEventListener('change',function(){if(this.value)document.getElementById('ap-nm').value=this.value;});
+// Abre "Agregar producto" con la categoría del grupo ya preseleccionada (botón
+// "+" por categoría del Patrón). El producto entra al final de esa categoría.
+function abrirAddPatron(cat){
+  addProdTarget='patron';
+  poblarApCat();
+  const sel=document.getElementById('ap-cat');
+  if([...sel.options].some(o=>o.value===cat))sel.value=cat;
+  poblarApProd(sel.value);
+  document.getElementById('ap-nm').value='';
+  document.getElementById('ap-qty').value='';
+  abrirMov('m-add-prod');
+}
 
 // ════ HISTORIAL ════
 function renderHistorial(){
@@ -1535,39 +1646,177 @@ window.eliminarLista=function(id){
 // ════ PATRÓN ════
 function renderPatron(){
   const cont=document.getElementById('pat-list');
-  if(!patron.length){cont.innerHTML='<div class="empty"><span>📝</span>Patrón vacío — define el orden base</div>';return;}
+  migrarOrdenPatron();
   cont.innerHTML='';
-  const cats=categorias.slice();
-  patron.forEach((it,i)=>{
-    const d=document.createElement('div');d.className='pat-row';d.draggable=true;d.dataset.i=i;
-    d.style.flexDirection='column';d.style.alignItems='stretch';
-    d.innerHTML=`<div style="display:flex;align-items:center;gap:6px"><span class="pat-drag">⠿</span><select class="pc" data-i="${i}" style="border:none;outline:none;background:transparent;font-size:.68rem;color:var(--green);font-weight:700;max-width:82px">${cats.map(c=>`<option${c===it.categoria?' selected':''}>${c}</option>`).join('')}</select><input class="pn" data-i="${i}" value="${it.nombre}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)"><input class="pq" data-i="${i}" value="${it.cantidad||''}" placeholder="Cant." style="border:none;outline:none;width:72px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent"><button class="pat-del" onclick="delPat(${i})">✕</button></div><div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:22px"><span style="font-size:.78rem;flex-shrink:0">🔊</span><input class="pv" data-i="${i}" value="${it.texto_voz||''}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic"></div>`;
-    d.addEventListener('dragstart',()=>{dragSrc=i;d.classList.add('dragging');});
-    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
-    d.addEventListener('dragover',e=>e.preventDefault());
-    d.addEventListener('drop',e=>{
-      e.preventDefault();if(dragSrc===null||dragSrc===i)return;
-      const tmp=patron[dragSrc];patron[dragSrc]=patron[i];patron[i]=tmp;
-      dragSrc=null;savePat();renderPatron();
+  const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+  // TODAS las categorías de la fuente única (bon_categorias), tengan o no
+  // productos: una categoría nueva creada en Ajustes aparece aquí como grupo
+  // vacío, listo para el botón "+" por categoría. El orden de 'categorias' es el
+  // orden de lectura entre categorías; las de productos no listadas van al final.
+  const usadas=categorias.slice();
+  patron.forEach(p=>{const c=p.categoria||'Otros';if(!usadas.includes(c))usadas.push(c);});
+  if(!usadas.length){cont.innerHTML='<div class="empty"><span>📝</span>No hay categorías. Crea una en Ajustes → Categorías.</div>';return;}
+  usadas.forEach(cat=>{
+    const grupo=document.createElement('div');grupo.className='pat-cat-group';grupo.dataset.cat=cat;
+    const head=document.createElement('div');head.className='pat-cat-head';
+    head.innerHTML=`<span class="pat-cat-grip" title="Arrastrar para reordenar categorías">⠿</span><span class="pat-cat-name">${esc(cat)}</span><button class="pat-cat-add" title="Agregar producto a ${esc(cat)}">+</button>`;
+    head.querySelector('.pat-cat-grip').addEventListener('pointerdown',e=>arrancarArrastre(e,'group',null,cat));
+    head.querySelector('.pat-cat-add').addEventListener('click',()=>abrirAddPatron(cat));
+    grupo.appendChild(head);
+    // Productos de la categoría, ordenados por su campo 'orden'.
+    const items=patron.map((p,i)=>({p,i})).filter(o=>(o.p.categoria||'Otros')===cat).sort((a,b)=>(a.p.orden||0)-(b.p.orden||0));
+    items.forEach(({p,i})=>{
+      const d=document.createElement('div');d.className='pat-row';d.dataset.i=i;d.style.flexDirection='column';d.style.alignItems='stretch';
+      d.innerHTML=`<div style="display:flex;align-items:center;gap:6px">`+
+        `<span class="pat-grip-row" title="Reordenar dentro de la categoría">⠿</span>`+
+        `<span class="pat-grip-move" title="Mover a otra categoría">⇆</span>`+
+        `<input class="pn" data-i="${i}" value="${esc(p.nombre)}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)">`+
+        `<input class="pq" data-i="${i}" value="${esc(p.cantidad)}" placeholder="Cant." style="border:none;outline:none;width:62px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent">`+
+        `<button class="pat-del" onclick="delPat(${i})">✕</button></div>`+
+        `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:22px"><span style="font-size:.78rem;flex-shrink:0">🔊</span>`+
+        `<input class="pv" data-i="${i}" value="${esc(p.texto_voz)}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic"></div>`;
+      d.querySelector('.pat-grip-row').addEventListener('pointerdown',e=>arrancarArrastre(e,'row',i,cat));
+      d.querySelector('.pat-grip-move').addEventListener('pointerdown',e=>arrancarArrastre(e,'move',i,cat));
+      grupo.appendChild(d);
     });
-    cont.appendChild(d);
+    if(!items.length){const vac=document.createElement('div');vac.className='pat-cat-empty';vac.textContent='Sin productos — usa  +  para agregar';grupo.appendChild(vac);}
+    cont.appendChild(grupo);
   });
-  cont.querySelectorAll('.pc').forEach(el=>el.addEventListener('change',e=>{patron[+e.target.dataset.i].categoria=e.target.value;savePat();}));
   cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].nombre=e.target.value;savePat();}));
   cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].cantidad=e.target.value;savePat();}));
   // texto_voz (Sección 1): lo escribe el usuario a mano, opcional. Vacío => se
   // lee el nombre crudo. Vive solo en el Patrón; no se sugiere automáticamente.
   cont.querySelectorAll('.pv').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].texto_voz=e.target.value.trim();savePat();}));
 }
-window.delPat=function(i){patron.splice(i,1);savePat();renderPatron();};
+
+// ─── Modelo de ORDEN del Patrón (Sección 1, arquitectura de ordenamiento) ───
+// Cada producto tiene 'orden' (entero dentro de su categoría). El orden ENTRE
+// categorías = orden de la lista 'categorias'. Toda factura se lee por aquí,
+// nunca por el orden de la factura.
+function migrarOrdenPatron(){
+  if(!patron.some(p=>typeof p.orden!=='number'))return;
+  const cont={};
+  patron.forEach(p=>{const c=p.categoria||'Otros';cont[c]=cont[c]||0;p.orden=cont[c]++;});
+  savePat();
+}
+function normalizarOrden(cat){
+  patron.filter(p=>(p.categoria||'Otros')===cat).sort((a,b)=>(a.orden||0)-(b.orden||0)).forEach((p,k)=>p.orden=k);
+}
+// Reordena el producto idxArr dentro de su categoría, insertándolo ANTES del
+// producto idxAntes (o al final si es null).
+function reordenarDentro(cat,idxArr,idxAntes){
+  let lista=patron.map((p,i)=>i).filter(i=>(patron[i].categoria||'Otros')===cat).sort((a,b)=>(patron[a].orden||0)-(patron[b].orden||0));
+  lista=lista.filter(i=>i!==idxArr);
+  let pos = idxAntes==null ? lista.length : lista.indexOf(idxAntes);
+  if(pos<0)pos=lista.length;
+  lista.splice(pos,0,idxArr);
+  lista.forEach((i,k)=>patron[i].orden=k);
+}
+// Mueve un producto a otra categoría (gesto separado): reasigna categoría y lo
+// pone al final de la nueva; renumera la categoría de origen.
+function moverACategoria(idxArr,nuevaCat){
+  const vieja=patron[idxArr].categoria||'Otros';
+  if(vieja===nuevaCat)return;
+  patron[idxArr].categoria=nuevaCat;
+  const maxO=Math.max(-1,...patron.filter((p,i)=>i!==idxArr&&(p.categoria||'Otros')===nuevaCat).map(p=>p.orden||0));
+  patron[idxArr].orden=maxO+1;
+  normalizarOrden(vieja);
+}
+// Reordena la categoría catArr en la lista 'categorias' (orden entre categorías).
+function moverCategoria(catArr,catObj,antes){
+  const a=categorias.indexOf(catArr);if(a<0)return;
+  categorias.splice(a,1);
+  let pos=categorias.indexOf(catObj);
+  if(pos<0)pos=categorias.length;else if(!antes)pos++;
+  categorias.splice(pos,0,catArr);
+  saveCategorias();
+}
+// Patrón en orden de lectura final: (orden de categoría, orden dentro de ella).
+function patronOrdenado(){
+  return patron.slice().sort((x,y)=>{
+    const a=categorias.indexOf(x.categoria||'Otros'),b=categorias.indexOf(y.categoria||'Otros');
+    return ((a<0?9999:a)-(b<0?9999:b))||((x.orden||0)-(y.orden||0));
+  });
+}
+
+// ─── Motor de arrastre TÁCTIL del Patrón (pointer events) ───
+// Tres gestos por manija: 'row' (reordenar dentro de la categoría), 'move'
+// (soltar sobre otra categoría para reasignarla) y 'group' (reordenar categorías).
+let pDrag=null;
+function arrancarArrastre(e,tipo,idx,cat){
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  const h=e.currentTarget;
+  // Captura el puntero en la manija: mantiene el stream aunque el dedo salga del
+  // elemento o el navegador intente otro gesto -> el arrastre no se "atasca".
+  try{h.setPointerCapture(e.pointerId);}catch(_){}
+  pDrag={tipo,idx,cat,moved:false,objetivo:null,objetivoCat:null,antes:true,handle:h,pid:e.pointerId};
+  const ghost=document.createElement('div');ghost.className='drag-ghost';
+  ghost.textContent=tipo==='group'?('Categoría: '+cat):(patron[idx]?(patron[idx].nombre||'Producto'):'');
+  document.body.appendChild(ghost);pDrag.ghost=ghost;posGhost(e.clientX,e.clientY);
+  window.addEventListener('pointermove',moverArrastre);
+  window.addEventListener('pointerup',soltarArrastre);
+  // Si el navegador cancela el puntero (long-press/selección/menú), cerramos sin
+  // commit en vez de quedar colgados sin pointerup.
+  window.addEventListener('pointercancel',cancelarArrastre);
+}
+// Evita que el long-press sobre una manija abra el menú contextual del navegador.
+document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('.pat-cat-grip,.pat-grip-row,.pat-grip-move'))e.preventDefault();});
+function posGhost(x,y){if(pDrag&&pDrag.ghost){pDrag.ghost.style.left=(x+12)+'px';pDrag.ghost.style.top=(y+12)+'px';}}
+function elBajo(x,y){const g=pDrag&&pDrag.ghost;if(g)g.style.display='none';const el=document.elementFromPoint(x,y);if(g)g.style.display='';return el;}
+function grupoBajo(x,y){let el=elBajo(x,y);while(el&&!(el.classList&&el.classList.contains('pat-cat-group')))el=el.parentElement;return el;}
+function limpiarResaltado(){document.querySelectorAll('.drop-cat,.drop-row').forEach(e=>e.classList.remove('drop-cat','drop-row'));}
+function moverArrastre(e){
+  if(!pDrag)return;
+  pDrag.moved=true;posGhost(e.clientX,e.clientY);limpiarResaltado();
+  if(pDrag.tipo==='row'){
+    const filas=[...document.querySelectorAll('.pat-row')].filter(r=>{const g=r.closest('.pat-cat-group');return g&&g.dataset.cat===pDrag.cat;});
+    let marcada=null;
+    for(const r of filas){const b=r.getBoundingClientRect();if(e.clientY<b.top+b.height/2){marcada=r;break;}}
+    if(marcada)marcada.classList.add('drop-row');
+    pDrag.objetivo=marcada?+marcada.dataset.i:null;
+  }else{
+    const g=grupoBajo(e.clientX,e.clientY);
+    if(g){g.classList.add('drop-cat');pDrag.objetivoCat=g.dataset.cat;
+      if(pDrag.tipo==='group'){const b=g.getBoundingClientRect();pDrag.antes=e.clientY<b.top+b.height/2;}
+    }else pDrag.objetivoCat=null;
+  }
+}
+// Cierra el arrastre (quita listeners, libera la captura y el fantasma) y
+// devuelve el estado para que quien cierra decida si aplica el cambio.
+function cerrarArrastre(){
+  window.removeEventListener('pointermove',moverArrastre);
+  window.removeEventListener('pointerup',soltarArrastre);
+  window.removeEventListener('pointercancel',cancelarArrastre);
+  limpiarResaltado();
+  const dr=pDrag;pDrag=null;
+  if(dr){
+    try{dr.handle&&dr.handle.releasePointerCapture&&dr.handle.releasePointerCapture(dr.pid);}catch(_){}
+    if(dr.ghost)dr.ghost.remove();
+  }
+  return dr;
+}
+function soltarArrastre(){
+  const dr=cerrarArrastre();
+  if(!dr||!dr.moved)return;
+  if(dr.tipo==='row'){reordenarDentro(dr.cat,dr.idx,dr.objetivo);savePat();renderPatron();}
+  else if(dr.tipo==='move'){if(dr.objetivoCat&&dr.objetivoCat!==dr.cat){moverACategoria(dr.idx,dr.objetivoCat);savePat();renderPatron();}}
+  else if(dr.tipo==='group'){if(dr.objetivoCat&&dr.objetivoCat!==dr.cat){moverCategoria(dr.cat,dr.objetivoCat,dr.antes);renderPatron();}}
+}
+// Cancelación del puntero: cerramos sin aplicar cambios (el gesto se abortó).
+function cancelarArrastre(){cerrarArrastre();}
+window.delPat=function(i){const c=patron[i]?(patron[i].categoria||'Otros'):null;patron.splice(i,1);if(c)normalizarOrden(c);savePat();renderPatron();};
 function savePat(){localStorage.setItem('bon_pat',JSON.stringify(patron));}
-document.getElementById('btn-pat-add').addEventListener('click',()=>{patron.push({categoria:'Paletas',nombre:'Nuevo producto',cantidad:''});savePat();renderPatron();});
+// orden siguiente (al final) dentro de una categoría.
+function siguienteOrden(cat){return Math.max(-1,...patron.filter(p=>(p.categoria||'Otros')===cat).map(p=>p.orden||0))+1;}
+document.getElementById('btn-pat-add').addEventListener('click',()=>{const cat='Paletas';patron.push({categoria:cat,nombre:'Nuevo producto',cantidad:'',orden:siguienteOrden(cat)});savePat();renderPatron();});
 document.getElementById('btn-pat-desde-cat').addEventListener('click',()=>{
   // Agregar todos los productos del catálogo que no estén ya en el patrón
   let agregados=0;
   catalogo.forEach(p=>{
     if(!patron.find(x=>x.nombre.toLowerCase()===p.n.toLowerCase())){
-      patron.push({categoria:p.c,nombre:p.n,cantidad:''});
+      const cat=p.c||'Otros';
+      patron.push({categoria:cat,nombre:p.n,cantidad:'',orden:siguienteOrden(cat)});
       agregados++;
     }
   });
@@ -1577,7 +1826,7 @@ document.getElementById('btn-pat-desde-cat').addEventListener('click',()=>{
 document.getElementById('btn-pat-clear').addEventListener('click',()=>{if(confirm('¿Limpiar patrón?')){patron=[];savePat();renderPatron();}});
 document.getElementById('btn-pat-usar').addEventListener('click',()=>{
   if(!patron.length){alert('El patrón está vacío.');return;}
-  allItems=patron.map(p=>({...p}));
+  allItems=patronOrdenado().map(p=>({...p}));
   renderEditAntes();
   document.getElementById('edit-antes-card').style.display='block';
   document.getElementById('asig-card').style.display='block';
