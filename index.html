@@ -1750,7 +1750,7 @@ function arrancarArrastre(e,tipo,idx,cat){
   // Captura el puntero en la manija: mantiene el stream aunque el dedo salga del
   // elemento o el navegador intente otro gesto -> el arrastre no se "atasca".
   try{h.setPointerCapture(e.pointerId);}catch(_){}
-  pDrag={tipo,idx,cat,moved:false,objetivo:null,objetivoCat:null,antes:true,handle:h,pid:e.pointerId};
+  pDrag={tipo,idx,cat,moved:false,objetivo:null,objetivoCat:null,antes:true,handle:h,pid:e.pointerId,lastX:null,lastY:null,scrollVel:0,rafScroll:null};
   const ghost=document.createElement('div');ghost.className='drag-ghost';
   ghost.textContent=tipo==='group'?('Categoría: '+cat):(patron[idx]?(patron[idx].nombre||'Producto'):'');
   document.body.appendChild(ghost);pDrag.ghost=ghost;posGhost(e.clientX,e.clientY);
@@ -1766,21 +1766,50 @@ function posGhost(x,y){if(pDrag&&pDrag.ghost){pDrag.ghost.style.left=(x+12)+'px'
 function elBajo(x,y){const g=pDrag&&pDrag.ghost;if(g)g.style.display='none';const el=document.elementFromPoint(x,y);if(g)g.style.display='';return el;}
 function grupoBajo(x,y){let el=elBajo(x,y);while(el&&!(el.classList&&el.classList.contains('pat-cat-group')))el=el.parentElement;return el;}
 function limpiarResaltado(){document.querySelectorAll('.drop-cat,.drop-row').forEach(e=>e.classList.remove('drop-cat','drop-row'));}
-function moverArrastre(e){
-  if(!pDrag)return;
-  pDrag.moved=true;posGhost(e.clientX,e.clientY);limpiarResaltado();
+// Encuentra y resalta el destino del arrastre según la posición (x,y). Se llama
+// tanto desde pointermove como desde el bucle de auto-scroll (con el dedo quieto).
+function evaluarObjetivo(x,y){
+  limpiarResaltado();
   if(pDrag.tipo==='row'){
     const filas=[...document.querySelectorAll('.pat-row')].filter(r=>{const g=r.closest('.pat-cat-group');return g&&g.dataset.cat===pDrag.cat;});
     let marcada=null;
-    for(const r of filas){const b=r.getBoundingClientRect();if(e.clientY<b.top+b.height/2){marcada=r;break;}}
+    for(const r of filas){const b=r.getBoundingClientRect();if(y<b.top+b.height/2){marcada=r;break;}}
     if(marcada)marcada.classList.add('drop-row');
     pDrag.objetivo=marcada?+marcada.dataset.i:null;
   }else{
-    const g=grupoBajo(e.clientX,e.clientY);
+    const g=grupoBajo(x,y);
     if(g){g.classList.add('drop-cat');pDrag.objetivoCat=g.dataset.cat;
-      if(pDrag.tipo==='group'){const b=g.getBoundingClientRect();pDrag.antes=e.clientY<b.top+b.height/2;}
+      if(pDrag.tipo==='group'){const b=g.getBoundingClientRect();pDrag.antes=y<b.top+b.height/2;}
     }else pDrag.objetivoCat=null;
   }
+}
+// Auto-scroll: si el dedo se acerca al borde superior/inferior del viewport, la
+// ventana se desplaza sola para alcanzar categorías fuera de vista. Los bordes
+// descuentan el header (~70px) y la barra inferior fija (~90px).
+const AS_TOP=70,AS_BOT=90,AS_MAX=14;
+function calcularAutoScroll(y){
+  const h=window.innerHeight;let v=0;
+  if(y<AS_TOP)v=-AS_MAX*Math.min(1,(AS_TOP-y)/AS_TOP);
+  else if(y>h-AS_BOT)v=AS_MAX*Math.min(1,(y-(h-AS_BOT))/AS_BOT);
+  pDrag.scrollVel=v;
+  if(v!==0&&!pDrag.rafScroll)pDrag.rafScroll=requestAnimationFrame(loopAutoScroll);
+}
+function loopAutoScroll(){
+  if(!pDrag){return;}
+  const v=pDrag.scrollVel||0;
+  if(v!==0){
+    window.scrollBy(0,v);
+    // El contenido se movió bajo un dedo quieto: re-evaluar el destino.
+    if(pDrag.lastX!=null)evaluarObjetivo(pDrag.lastX,pDrag.lastY);
+    pDrag.rafScroll=requestAnimationFrame(loopAutoScroll);
+  }else pDrag.rafScroll=null;
+}
+function moverArrastre(e){
+  if(!pDrag)return;
+  pDrag.moved=true;pDrag.lastX=e.clientX;pDrag.lastY=e.clientY;
+  posGhost(e.clientX,e.clientY);
+  evaluarObjetivo(e.clientX,e.clientY);
+  calcularAutoScroll(e.clientY);
 }
 // Cierra el arrastre (quita listeners, libera la captura y el fantasma) y
 // devuelve el estado para que quien cierra decida si aplica el cambio.
@@ -1791,6 +1820,7 @@ function cerrarArrastre(){
   limpiarResaltado();
   const dr=pDrag;pDrag=null;
   if(dr){
+    if(dr.rafScroll)cancelAnimationFrame(dr.rafScroll);
     try{dr.handle&&dr.handle.releasePointerCapture&&dr.handle.releasePointerCapture(dr.pid);}catch(_){}
     if(dr.ghost)dr.ghost.remove();
   }
