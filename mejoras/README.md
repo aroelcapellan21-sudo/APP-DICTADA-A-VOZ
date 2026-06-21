@@ -24,7 +24,7 @@ Leyenda de estado: ✅ implementado · ⚠️ parcial · ❌ pendiente.
 
 | Archivo | Mejora | Estado |
 |---|---|---|
-| `A-bug-orden-patron-al-dictar.md` | Bug: el orden del Patrón no siempre se respeta al dictar | ❌ diagnosticar |
+| `A-bug-orden-patron-al-dictar.md` | Bug: el orden del Patrón no siempre se respeta al dictar | ✅ |
 | `B-senal-stop-sin-coincidencia.md` | Señal 🛑 informativa para productos sin coincidencia en el Patrón | ❌ |
 | `C-arrastre-entre-categorias.md` | Arrastre ⇄ entre categorías (intermitente) + registro automático de intentos | ⚠️ en curso |
 | `D-autocompletado-nombres-patron.md` | Autocompletado de nombres en el Patrón desde facturas escaneadas | ❌ |
