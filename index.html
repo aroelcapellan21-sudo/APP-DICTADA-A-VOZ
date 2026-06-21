@@ -163,12 +163,20 @@ input[type=file]{display:none}
 .pat-cat-group{margin-bottom:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg)}
 .pat-cat-group.drop-cat{box-shadow:inset 0 0 0 2px var(--green)}
 .pat-cat-head{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--green-l);border-bottom:1px solid var(--border)}
+/* Señal de destino válido durante el arrastre ⇄/categorías: encabezado azul. */
+.pat-cat-head.drop-head{background:#1976d2;border-color:#1976d2}
+.pat-cat-head.drop-head .pat-cat-name,.pat-cat-head.drop-head .pat-cat-grip{color:#fff}
 .pat-cat-name{font-size:.74rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.04em;flex:1}
 .pat-cat-add{flex-shrink:0;width:24px;height:24px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:1rem;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pat-cat-empty{font-size:.72rem;color:var(--muted);font-style:italic;padding:8px 10px;text-align:center}
 .pat-cat-grip{font-size:.95rem;color:var(--green);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;padding:2px 3px;flex-shrink:0}
-.pat-grip-row,.pat-grip-move{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;flex-shrink:0;padding:2px 3px;font-size:.9rem;color:var(--muted)}
-.pat-grip-move{color:var(--green)}
+/* Dos cajitas táctiles independientes (≥44px) para que el dedo nunca confunda
+   ⠿ (reordenar dentro de la categoría) con ⇆ (mover a otra categoría). */
+.pat-grip-row,.pat-grip-move{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;font-size:1.3rem;line-height:1}
+/* ⠿ = caja gris neutra. */
+.pat-grip-row{background:var(--border);color:var(--muted);margin-right:18px}
+/* ⇆ = caja verde con borde, para distinguirla a simple vista y dejar hueco grande. */
+.pat-grip-move{background:var(--green-l);color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
 .pat-row.arr{opacity:.45}
 .pat-row.drop-row{box-shadow:0 -2px 0 0 var(--green)}
 .drag-ghost{position:fixed;z-index:9999;pointer-events:none;background:var(--white);border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:.8rem;font-weight:700;color:var(--text);box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:.95}
@@ -1673,7 +1681,7 @@ function renderPatron(){
         `<input class="pn" data-i="${i}" value="${esc(p.nombre)}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)">`+
         `<input class="pq" data-i="${i}" value="${esc(p.cantidad)}" placeholder="Cant." style="border:none;outline:none;width:62px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent">`+
         `<button class="pat-del" onclick="delPat(${i})">✕</button></div>`+
-        `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:22px"><span style="font-size:.78rem;flex-shrink:0">🔊</span>`+
+        `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:118px"><span style="font-size:.78rem;flex-shrink:0">🔊</span>`+
         `<input class="pv" data-i="${i}" value="${esc(p.texto_voz)}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic"></div>`;
       d.querySelector('.pat-grip-row').addEventListener('pointerdown',e=>arrancarArrastre(e,'row',i,cat));
       d.querySelector('.pat-grip-move').addEventListener('pointerdown',e=>arrancarArrastre(e,'move',i,cat));
@@ -1712,15 +1720,19 @@ function reordenarDentro(cat,idxArr,idxAntes){
   lista.splice(pos,0,idxArr);
   lista.forEach((i,k)=>patron[i].orden=k);
 }
-// Mueve un producto a otra categoría (gesto separado): reasigna categoría y lo
-// pone al final de la nueva; renumera la categoría de origen.
-function moverACategoria(idxArr,nuevaCat){
+// Mueve un producto a 'nuevaCat' insertándolo en la POSICIÓN EXACTA: antes del
+// producto idxAntes (o al final si es null). Sirve también para reposicionar
+// dentro de la misma categoría. Renumera origen y destino sin huecos.
+function moverACategoriaEnPos(idxArr,nuevaCat,idxAntes){
   const vieja=patron[idxArr].categoria||'Otros';
-  if(vieja===nuevaCat)return;
   patron[idxArr].categoria=nuevaCat;
-  const maxO=Math.max(-1,...patron.filter((p,i)=>i!==idxArr&&(p.categoria||'Otros')===nuevaCat).map(p=>p.orden||0));
-  patron[idxArr].orden=maxO+1;
-  normalizarOrden(vieja);
+  let lista=patron.map((p,i)=>i).filter(i=>(patron[i].categoria||'Otros')===nuevaCat).sort((a,b)=>(patron[a].orden||0)-(patron[b].orden||0));
+  lista=lista.filter(i=>i!==idxArr);
+  let pos = idxAntes==null ? lista.length : lista.indexOf(idxAntes);
+  if(pos<0)pos=lista.length;
+  lista.splice(pos,0,idxArr);
+  lista.forEach((i,k)=>patron[i].orden=k);
+  if(vieja!==nuevaCat)normalizarOrden(vieja);
 }
 // Reordena la categoría catArr en la lista 'categorias' (orden entre categorías).
 function moverCategoria(catArr,catObj,antes){
@@ -1750,7 +1762,7 @@ function arrancarArrastre(e,tipo,idx,cat){
   // Captura el puntero en la manija: mantiene el stream aunque el dedo salga del
   // elemento o el navegador intente otro gesto -> el arrastre no se "atasca".
   try{h.setPointerCapture(e.pointerId);}catch(_){}
-  pDrag={tipo,idx,cat,moved:false,objetivo:null,objetivoCat:null,antes:true,handle:h,pid:e.pointerId,lastX:null,lastY:null,scrollVel:0,rafScroll:null};
+  pDrag={tipo,idx,cat,moved:false,objetivo:null,objetivoCat:null,objetivoPos:null,antes:true,handle:h,pid:e.pointerId,lastX:null,lastY:null,scrollVel:0,rafScroll:null};
   const ghost=document.createElement('div');ghost.className='drag-ghost';
   ghost.textContent=tipo==='group'?('Categoría: '+cat):(patron[idx]?(patron[idx].nombre||'Producto'):'');
   document.body.appendChild(ghost);pDrag.ghost=ghost;posGhost(e.clientX,e.clientY);
@@ -1763,9 +1775,7 @@ function arrancarArrastre(e,tipo,idx,cat){
 // Evita que el long-press sobre una manija abra el menú contextual del navegador.
 document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('.pat-cat-grip,.pat-grip-row,.pat-grip-move'))e.preventDefault();});
 function posGhost(x,y){if(pDrag&&pDrag.ghost){pDrag.ghost.style.left=(x+12)+'px';pDrag.ghost.style.top=(y+12)+'px';}}
-function elBajo(x,y){const g=pDrag&&pDrag.ghost;if(g)g.style.display='none';const el=document.elementFromPoint(x,y);if(g)g.style.display='';return el;}
-function grupoBajo(x,y){let el=elBajo(x,y);while(el&&!(el.classList&&el.classList.contains('pat-cat-group')))el=el.parentElement;return el;}
-function limpiarResaltado(){document.querySelectorAll('.drop-cat,.drop-row').forEach(e=>e.classList.remove('drop-cat','drop-row'));}
+function limpiarResaltado(){document.querySelectorAll('.drop-cat,.drop-row,.drop-head').forEach(e=>e.classList.remove('drop-cat','drop-row','drop-head'));}
 // Encuentra y resalta el destino del arrastre según la posición (x,y). Se llama
 // tanto desde pointermove como desde el bucle de auto-scroll (con el dedo quieto).
 function evaluarObjetivo(x,y){
@@ -1777,10 +1787,28 @@ function evaluarObjetivo(x,y){
     if(marcada)marcada.classList.add('drop-row');
     pDrag.objetivo=marcada?+marcada.dataset.i:null;
   }else{
-    const g=grupoBajo(x,y);
-    if(g){g.classList.add('drop-cat');pDrag.objetivoCat=g.dataset.cat;
+    // Detección por GEOMETRÍA (igual que ⠿, que sí funciona): el grupo cuyo
+    // rect contiene la Y del dedo; si cae en un hueco, el más cercano. NO usa
+    // hit-testing -> inmune a overlays fijos (barra de nav) y a la captura del
+    // puntero, que era lo que rompía el gesto ⇄.
+    const grupos=[...document.querySelectorAll('.pat-cat-group')];
+    let g=null,mejorDist=Infinity;
+    for(const gr of grupos){
+      const b=gr.getBoundingClientRect();
+      if(y>=b.top&&y<=b.bottom){g=gr;break;}
+      const d=y<b.top?b.top-y:y-b.bottom;
+      if(d<mejorDist){mejorDist=d;g=gr;}
+    }
+    if(g){g.classList.add('drop-cat');const hd=g.querySelector('.pat-cat-head');if(hd)hd.classList.add('drop-head');pDrag.objetivoCat=g.dataset.cat;
       if(pDrag.tipo==='group'){const b=g.getBoundingClientRect();pDrag.antes=y<b.top+b.height/2;}
-    }else pDrag.objetivoCat=null;
+      else{ // 'move': posición EXACTA de inserción dentro de la categoría destino
+        const filas=[...g.querySelectorAll('.pat-row')];
+        let marcada=null;
+        for(const r of filas){const b=r.getBoundingClientRect();if(y<b.top+b.height/2){marcada=r;break;}}
+        if(marcada)marcada.classList.add('drop-row');
+        pDrag.objetivoPos=marcada?+marcada.dataset.i:null;
+      }
+    }else{pDrag.objetivoCat=null;pDrag.objetivoPos=null;}
   }
 }
 // Auto-scroll: si el dedo se acerca al borde superior/inferior del viewport, la
@@ -1830,7 +1858,7 @@ function soltarArrastre(){
   const dr=cerrarArrastre();
   if(!dr||!dr.moved)return;
   if(dr.tipo==='row'){reordenarDentro(dr.cat,dr.idx,dr.objetivo);savePat();renderPatron();}
-  else if(dr.tipo==='move'){if(dr.objetivoCat&&dr.objetivoCat!==dr.cat){moverACategoria(dr.idx,dr.objetivoCat);savePat();renderPatron();}}
+  else if(dr.tipo==='move'){if(dr.objetivoCat){moverACategoriaEnPos(dr.idx,dr.objetivoCat,dr.objetivoPos);savePat();renderPatron();}}
   else if(dr.tipo==='group'){if(dr.objetivoCat&&dr.objetivoCat!==dr.cat){moverCategoria(dr.cat,dr.objetivoCat,dr.antes);renderPatron();}}
 }
 // Cancelación del puntero: cerramos sin aplicar cambios (el gesto se abortó).

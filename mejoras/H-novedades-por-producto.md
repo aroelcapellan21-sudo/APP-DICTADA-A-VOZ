@@ -45,6 +45,14 @@ Almacenamiento: las listas viven en `listas[]` (localStorage `bon_listas`); cada
 - Cada tipo activado puede llevar una **nota de texto libre opcional** (ej. en "Retirados por" anotar quién se lo llevó).
 - La nota **no es obligatoria** para activar el tipo.
 
+### Botón visible en todos, info guardada solo en los que tienen novedad
+- **Todos** los productos de la lista muestran el botón "Novedades" (no se oculta en ninguno).
+- Pero **solo los productos que tengan al menos una novedad activa guardan información adicional**; el resto no persiste nada extra (ver Almacenamiento).
+
+### Consulta desde guardados (revisar la lista después)
+- Al **consultar la lista desde guardados** (la factura/lista del chofer ya almacenada), **cada producto muestra su propia información en su lugar**: las novedades y notas que se le marcaron aparecen junto a ese producto y solo ese, sin mezclarse con los demás.
+- Un producto sin novedades se ve normal (botón gris, sin info extra) también al consultarlo desde guardados.
+
 ### Almacenamiento
 - Las novedades y sus notas se guardan **asociadas específicamente a ese producto dentro de esa lista/factura del chofer** — no a la lista completa ni a otros productos.
 - Si el producto **no tuvo ninguna novedad** marcada, **no se guarda nada extra** para él.
@@ -58,7 +66,9 @@ Almacenamiento: las listas viven en `listas[]` (localStorage `bon_listas`); cada
   (o un array de `{tipo, nota}`). Omitir el campo si no hay ninguna activa.
 
 ## Criterio de listo
-- Cada producto de la lista del chofer muestra el botón "Novedades"; parpadea si tiene ≥1 novedad activa, gris si no.
+- **Todos** los productos de la lista del chofer muestran el botón "Novedades"; parpadea si tiene ≥1 novedad activa, gris si no.
+- Solo los productos con ≥1 novedad activa guardan información adicional; los demás no persisten nada extra.
+- Al consultar la lista desde guardados, cada producto muestra **su propia** información (novedades/notas) en su lugar, sin mezclarse con otros productos.
 - El modal permite activar/desactivar los 8 tipos de forma independiente (varios a la vez), con nota opcional por tipo.
 - Las novedades y notas se persisten en el producto correcto de esa lista (`listas[...]`) y sobreviven a recargar; un producto sin novedades no guarda nada extra.
 - No se altera el dictado, el auto-avance, ni el patrón de pronunciación.
