@@ -7,6 +7,7 @@
 // Para desarrollo local se usa server.js, que reutiliza esta misma app.
 
 const express = require('express');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -108,8 +109,36 @@ app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     gemini: Boolean(process.env.GEMINI_API_KEY),
-    claude: Boolean(process.env.CLAUDE_API_KEY)
+    claude: Boolean(process.env.CLAUDE_API_KEY),
+    patron: Boolean(process.env.PATRON_PASSWORD)
   });
+});
+
+// Verificación de la contraseña del Patrón/Ajustes (Sección 9). La clave vive
+// SOLO como variable de entorno PATRON_PASSWORD; nunca se expone al cliente.
+// El front envía la clave por HTTPS y aquí se compara en tiempo constante.
+function claveCorrecta(input) {
+  const esperada = process.env.PATRON_PASSWORD;
+  if (!esperada) {
+    throw { status: 500, message: 'PATRON_PASSWORD no está configurada en el servidor.' };
+  }
+  if (typeof input !== 'string') return false;
+  const a = Buffer.from(input);
+  const b = Buffer.from(esperada);
+  // timingSafeEqual exige misma longitud; distinta longitud => no coincide.
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+app.post('/api/verify-clave', (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (claveCorrecta(password)) return res.json({ ok: true });
+    return res.status(401).json({ ok: false });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ error: err.message || 'Error interno del servidor.' });
+  }
 });
 
 app.post('/api/analyze', async (req, res) => {

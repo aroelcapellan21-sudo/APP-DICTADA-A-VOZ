@@ -269,7 +269,7 @@ input[type=file]{display:none}
       <strong>Lector de Facturas</strong>
     </div>
     <div class="hright">
-      <button onclick="navTo('patron',null)" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:3px;line-height:1" title="Patrón">📝</button>
+      <button onclick="pedirClavePatron()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:3px;line-height:1" title="Patrón">📝</button>
       <span id="net-dot" title="Estado de red" style="font-size:.75rem;cursor:default">🟢</span>
       <span id="badge">Listo</span>
       <button id="btn-aj" onclick="pedirAjustes()" title="Ajustes">⚙️</button>
@@ -441,9 +441,7 @@ input[type=file]{display:none}
 <!-- ══ AJUSTES ══ -->
 <div class="page" id="page-ajustes">
   <div class="aj-sec"><div class="aj-hd">Seguridad</div><div class="aj-bd">
-    <div class="fld"><label>Contraseña actual</label><input type="password" id="pwd-act" class="inp" placeholder="••••"></div>
-    <div class="fld"><label>Nueva contraseña</label><input type="password" id="pwd-new" class="inp" placeholder="Nueva"></div>
-    <button class="btn bred bfull" id="btn-ch-pwd">🔒 Cambiar contraseña</button>
+    <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin:0">🔒 La contraseña se verifica en el servidor y se gestiona como variable de entorno <strong>PATRON_PASSWORD</strong> en Vercel. Para cambiarla, edítala allí (Project Settings → Environment Variables) y vuelve a desplegar.</p>
   </div></div>
   <div class="aj-sec"><div class="aj-hd">Categorías</div><div class="aj-bd">
     <div id="aj-cats" style="display:flex;flex-direction:column;gap:4px;margin-bottom:7px"></div>
@@ -585,7 +583,7 @@ input[type=file]{display:none}
 
 <!-- MODAL: CLAVE AJUSTES -->
 <div class="mov" id="m-clave"><div class="msh" style="padding-bottom:16px">
-  <div class="mhdl"></div><div class="mtit">🔒 Ajustes</div>
+  <div class="mhdl"></div><div class="mtit" id="m-clave-tit">🔒 Ajustes</div>
   <p style="text-align:center;font-size:.78rem;color:var(--muted)">Ingresa la contraseña</p>
   <input type="password" id="clave-inp" class="inp" placeholder="Contraseña" autocomplete="off" style="text-align:center;font-size:1.1rem;letter-spacing:.2em">
   <div class="g2"><button class="btn bout" onclick="cerrarMov('m-clave')">Cancelar</button><button class="btn bred" id="btn-ver-clave">Entrar</button></div>
@@ -609,7 +607,6 @@ input[type=file]{display:none}
 <script>
 // ════ ESTADO ════
 let aiProv=localStorage.getItem('bon_prov')||'gemini';
-let ajPwd=localStorage.getItem('bon_pwd')||'2024';
 let allItems=[],curIdx=-1,stream=null,capUrl=null;
 let recognition=null,synth=window.speechSynthesis;
 // ── Fuente ÚNICA de configuración de lectura (Sección 0). Todos los módulos
@@ -699,25 +696,66 @@ function navTo(pg,btn){
   if(btn)btn.classList.add('active');
 }
 
+// ════ CONTRASEÑA — Patrón y Ajustes (Sección 9) ════
+// La clave vive SOLO en el servidor (PATRON_PASSWORD); nunca se compara en el
+// cliente. Con conexión se verifica siempre contra /api/verify-clave. Sin
+// conexión (o servidor inalcanzable) se usa una marca de sesión local de 8 h,
+// que se RENUEVA en cada verificación exitosa. La marca es solo un timestamp,
+// nunca la contraseña.
+const SESS_MS=8*60*60*1000;
+function marcarSesion(){localStorage.setItem('bon_clave_sess',String(Date.now()));}
+function sesionVigente(){return Date.now()-(+localStorage.getItem('bon_clave_sess')||0)<SESS_MS;}
+// Devuelve 'ok' | 'bad' | 'offline'. En 'ok' renueva la sesión.
+async function verificarClave(password){
+  try{
+    const r=await fetch('/api/verify-clave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+    if(r.ok){marcarSesion();return 'ok';}
+    return 'bad';
+  }catch(_){return 'offline';}
+}
+// Puerta reutilizable: pide la clave (título dinámico) y ejecuta onOk si procede.
+let _claveOnOk=null;
+function pedirClave(titulo,onOk){
+  // Sin conexión: no se puede verificar -> respaldo de sesión de 8 h.
+  if(!navigator.onLine){
+    if(sesionVigente())onOk();
+    else alert('Sin conexión y la sesión expiró. Conéctate a internet para entrar.');
+    return;
+  }
+  _claveOnOk=onOk;
+  document.getElementById('m-clave-tit').textContent=titulo;
+  const inp=document.getElementById('clave-inp');
+  inp.value='';inp.style.borderColor='';
+  abrirMov('m-clave');
+  setTimeout(()=>inp.focus(),300);
+}
+async function _confirmarClave(){
+  const inp=document.getElementById('clave-inp'),btn=document.getElementById('btn-ver-clave');
+  btn.disabled=true;
+  const res=await verificarClave(inp.value.trim());
+  btn.disabled=false;
+  const entrar=()=>{cerrarMov('m-clave');const cb=_claveOnOk;_claveOnOk=null;if(cb)cb();};
+  if(res==='ok')entrar();
+  // Servidor inalcanzable pese a navigator.onLine: respaldo de sesión.
+  else if(res==='offline'){if(sesionVigente())entrar();else alert('No se pudo verificar (sin conexión) y la sesión expiró.');}
+  else{inp.style.borderColor='red';setTimeout(()=>inp.style.borderColor='',1200);}
+}
+document.getElementById('btn-ver-clave').addEventListener('click',_confirmarClave);
+document.getElementById('clave-inp').addEventListener('keydown',e=>{if(e.key==='Enter')_confirmarClave();});
+
 // ════ AJUSTES ════
 function pedirAjustes(){
-  document.getElementById('clave-inp').value='';
-  abrirMov('m-clave');
-  setTimeout(()=>document.getElementById('clave-inp').focus(),300);
-}
-document.getElementById('btn-ver-clave').addEventListener('click',()=>{
-  if(document.getElementById('clave-inp').value.trim()===ajPwd){
-    cerrarMov('m-clave');
+  pedirClave('🔒 Ajustes',()=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.getElementById('page-ajustes').classList.add('active');
     document.getElementById('aj-prov').value=aiProv;
     renderCatalogo();renderCategorias();poblarAjCat();
-  }else{
-    document.getElementById('clave-inp').style.borderColor='red';
-    setTimeout(()=>document.getElementById('clave-inp').style.borderColor='',1200);
-  }
-});
-document.getElementById('clave-inp').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-ver-clave').click();});
+  });
+}
+// ════ PATRÓN ════ — siempre pide clave en cada entrada al tab.
+function pedirClavePatron(){
+  pedirClave('🔒 Patrón',()=>{navTo('patron',null);renderPatron();});
+}
 
 // ════ MODAL ════
 function abrirMov(id){document.getElementById(id).classList.add('open');}
@@ -983,7 +1021,14 @@ document.getElementById('btn-guardar').addEventListener('click',()=>{
     const yaExiste=listas.find(l=>l.chofer&&l.chofer.id==chId&&l.fechaStr===hoyStr());
     if(yaExiste){
       pendingGuardar=true;
+      // Sin conexión: respaldo de sesión de 8 h en vez de pedir clave.
+      if(!navigator.onLine){
+        if(sesionVigente())guardarListaFinal(chId,notas);
+        else alert('Sin conexión y la sesión expiró. Conéctate para crear otra lista.');
+        return;
+      }
       document.getElementById('clave-dup-inp').value='';
+      document.getElementById('clave-dup-inp').style.borderColor='';
       abrirMov('m-clave-dup');
       return;
     }
@@ -991,16 +1036,15 @@ document.getElementById('btn-guardar').addEventListener('click',()=>{
   guardarListaFinal(chId,notas);
 });
 
-document.getElementById('btn-ver-clave-dup').addEventListener('click',()=>{
-  if(document.getElementById('clave-dup-inp').value.trim()===ajPwd){
-    cerrarMov('m-clave-dup');
-    const chId=document.getElementById('chofer-sel').value;
-    const notas=document.getElementById('lista-notas').value.trim();
-    guardarListaFinal(chId,notas);
-  }else{
-    document.getElementById('clave-dup-inp').style.borderColor='red';
-    setTimeout(()=>document.getElementById('clave-dup-inp').style.borderColor='',1200);
-  }
+document.getElementById('btn-ver-clave-dup').addEventListener('click',async()=>{
+  const inp=document.getElementById('clave-dup-inp'),btn=document.getElementById('btn-ver-clave-dup');
+  btn.disabled=true;
+  const res=await verificarClave(inp.value.trim());
+  btn.disabled=false;
+  const entrar=()=>{cerrarMov('m-clave-dup');const chId=document.getElementById('chofer-sel').value;const notas=document.getElementById('lista-notas').value.trim();guardarListaFinal(chId,notas);};
+  if(res==='ok')entrar();
+  else if(res==='offline'){if(sesionVigente())entrar();else alert('No se pudo verificar (sin conexión) y la sesión expiró.');}
+  else{inp.style.borderColor='red';setTimeout(()=>inp.style.borderColor='',1200);}
 });
 
 function guardarListaFinal(chId,notas){
@@ -1893,14 +1937,6 @@ document.getElementById('btn-pat-usar').addEventListener('click',()=>{
 });
 
 // ════ AJUSTES ════
-document.getElementById('btn-ch-pwd').addEventListener('click',()=>{
-  const act=document.getElementById('pwd-act').value.trim(),nw=document.getElementById('pwd-new').value.trim();
-  if(act!==ajPwd){alert('Contraseña actual incorrecta.');return;}
-  if(!nw){alert('La nueva contraseña no puede estar vacía.');return;}
-  ajPwd=nw;localStorage.setItem('bon_pwd',ajPwd);
-  document.getElementById('pwd-act').value='';document.getElementById('pwd-new').value='';
-  alert('✅ Contraseña cambiada.');
-});
 document.getElementById('aj-prov').addEventListener('change',function(){
   aiProv=this.value;localStorage.setItem('bon_prov',aiProv);
   document.getElementById('ai-prov').value=aiProv;updModelInfo();
