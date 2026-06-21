@@ -655,26 +655,37 @@ function iniciales(n){return n.split(' ').slice(0,2).map(w=>w[0]||'').join('').t
 function strColor(s){const c=['#d32f2f','#1565c0','#2e7d32','#6a1b9a','#e65100','#00695c','#4e342e','#37474f'];let h=0;for(let i=0;i<s.length;i++)h=s.charCodeAt(i)+((h<<5)-h);return c[Math.abs(h)%c.length];}
 function setBadge(t,c){const b=document.getElementById('badge');b.textContent=t;b.className=c||'';}
 function saveListas(){localStorage.setItem('bon_listas',JSON.stringify(listas));}
-function ordenarPorPatron(items){
-  if(!patron.length)return items;
-  const ord=[];
-  // Recorre el Patrón en su orden de lectura final (categoría, orden), no por
-  // índice de array: así el orden es el que definió el usuario, fijo por factura.
-  patronOrdenado().forEach(p=>{const pn=(p.nombre||'').toLowerCase();if(!pn)return;const f=items.find(it=>(it.nombre||'').toLowerCase()===pn);if(f&&!ord.includes(f))ord.push(f);});
-  items.forEach(it=>{if(!ord.includes(it))ord.push(it);});
-  return ord;
+// Normaliza un nombre para emparejar factura<->Patrón de forma robusta:
+// minúsculas, sin acentos, sin puntuación/separadores (/, -, etc.) y espacios
+// colapsados. Así "Paleta Choco-Maní 32/1" y "paleta choco mani 32 1" se
+// consideran el mismo producto (Casos 1 y 4 del diagnóstico de la mejora A).
+function normNombre(s){
+  return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 }
-// Reagrupa por categoría para el modo de lectura por categoría (Sección 2).
-// 'items' ya viene en orden de Patrón: respetamos ese orden DENTRO de cada
-// categoría, y las categorías quedan en el orden de su primera aparición.
-function agruparPorCategoria(items){
-  const grupos=[],pos={};
-  items.forEach(it=>{
-    const c=it.categoria||'Otros';
-    if(pos[c]===undefined){pos[c]=grupos.length;grupos.push([]);}
-    grupos[pos[c]].push(it);
+// Categoría de LECTURA de un item: la del Patrón si el item está emparejado
+// (_catLect), si no la que traía de la factura. Nunca toca el dato guardado.
+function catLect(it){return (it&&it._catLect)||(it&&it.categoria)||'Otros';}
+// Devuelve una COPIA de 'items' en el orden de lectura del Patrón VIGENTE:
+// recorre patronOrdenado() (categoría, orden) y empareja por nombre normalizado;
+// los emparejados heredan la categoría del Patrón (_catLect) e incluyen duplicados
+// del mismo nombre. Los que NO están en el Patrón van al final, en orden de
+// factura. No muta los items originales, así el registro guardado de la lista
+// permanece fiel a lo capturado (Caso 5: dato fijo, lectura siempre al día).
+function ordenarPorPatron(items){
+  const copia=items.map(it=>({...it}));
+  if(!patron.length)return copia;
+  const usados=new Array(copia.length).fill(false);
+  const ord=[];
+  patronOrdenado().forEach(p=>{
+    const pn=normNombre(p.nombre);if(!pn)return;
+    copia.forEach((it,idx)=>{
+      if(usados[idx]||normNombre(it.nombre)!==pn)return;
+      it._catLect=p.categoria||'Otros';
+      ord.push(it);usados[idx]=true;
+    });
   });
-  return [].concat(...grupos);
+  copia.forEach((it,idx)=>{if(!usados[idx]){it._catLect=it.categoria||'Otros';ord.push(it);}});
+  return ord;
 }
 
 // ════ INIT ════
@@ -1057,9 +1068,11 @@ function guardarListaFinal(chId,notas){
     fecha:new Date().toLocaleString('es-DO'),
     fechaStr:hoyStr(),
     chofer:ch,
-    // Se descartan los metadatos de validación (confianza del OCR / revisado);
-    // el nombre y la cantidad se guardan tal cual quedaron tras la revisión.
-    items:allItems.map(({conf_cantidad,conf_precio,conf_total,revisado,...rest})=>rest),
+    // Se descartan los metadatos de validación (confianza del OCR / revisado) y
+    // el campo transitorio de lectura (_catLect, categoría heredada del Patrón).
+    // El nombre, la cantidad y la categoría capturada se guardan tal cual: el
+    // registro queda FIEL a lo capturado; el orden se recalcula al dictar (Caso 5).
+    items:allItems.map(({conf_cantidad,conf_precio,conf_total,revisado,_catLect,...rest})=>rest),
     escuchada:false
   });
   if(listas.length>500)listas=listas.slice(0,500);
@@ -1209,25 +1222,30 @@ document.getElementById('btn-cerrar-dictado').addEventListener('click',()=>{
 });
 
 // ════ DICTADO ════
+// Pinta la lista EN EL MISMO ORDEN que 'items' (= orden del audio): inserta un
+// encabezado de categoría cada vez que cambia la categoría de lectura y numera
+// por el índice del array, de modo que dataset.index === curIdx. Así numeración,
+// resaltado y ✓ siguen exactamente al audio, sin desincronizarse (Caso 6).
 function renderItemList(items){
   const list=document.getElementById('item-list');list.innerHTML='';
-  const g=grupBy(items);let idx=0;
-  for(const[cat,prods] of Object.entries(g)){
-    const l=document.createElement('div');l.className='cat-lbl';l.textContent=cat;list.appendChild(l);
-    prods.forEach(p=>{
-      const r=document.createElement('div');r.className='irow';const ord=idx+1;r.dataset.index=idx;idx++;
-      r.innerHTML=`<span class="inum">${ord}</span><div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`;
-      list.appendChild(r);
-    });
-  }
+  let lastCat=null;
+  items.forEach((p,idx)=>{
+    const c=catLect(p);
+    if(c!==lastCat){const lbl=document.createElement('div');lbl.className='cat-lbl';lbl.textContent=c;list.appendChild(lbl);lastCat=c;}
+    const r=document.createElement('div');r.className='irow';r.dataset.index=idx;
+    r.innerHTML=`<span class="inum">${idx+1}</span><div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`;
+    list.appendChild(r);
+  });
 }
 
 function iniciarDictado(listaId){
   curIdx=-1;paused=false;
-  // Modo categoría (Sección 2): reagrupa la copia de trabajo por categoría y
-  // re-renderiza, para que el orden en pantalla coincida con el del audio. No
-  // toca la lista guardada (allItems aquí es una copia del dictado).
-  if(CONFIG_LECTURA.modo==='categoria'){allItems=agruparPorCategoria(allItems);renderItemList(allItems);}
+  // El orden de lectura SIEMPRE se recalcula contra el Patrón VIGENTE (Caso 5):
+  // da igual si es la 1ª vez o un redictado posterior; el dato guardado no se
+  // toca (ordenarPorPatron trabaja sobre copias). renderItemList pinta en ese
+  // mismo orden, así pantalla y audio nunca se desincronizan (Caso 6).
+  allItems=ordenarPorPatron(allItems);
+  renderItemList(allItems);
   ocultarFabDictado();
   document.getElementById('done-sec').style.display='none';
   document.getElementById('results-sec').style.display='flex';
@@ -1277,7 +1295,7 @@ function updAAEstado(){
 }
 function updCur(){
   const it=allItems[curIdx];
-  document.getElementById('cur-cat').textContent=it.categoria||'—';
+  document.getElementById('cur-cat').textContent=catLect(it);
   // La pantalla muestra el nombre crudo de la factura; la pronunciación (vozDe)
   // se aplica SOLO al audio (speakCur/textoProducto), no a lo que se ve.
   document.getElementById('cur-prod').textContent=it.nombre;
@@ -1325,8 +1343,8 @@ function hablar(txt){
 // Nunca se escribe sobre el item guardado, así el nombre de la lista sigue
 // fiel a como llegó en la factura original.
 function vozDe(it){
-  const nom=(it.nombre||'').toLowerCase();
-  const p=patron.find(x=>(x.nombre||'').toLowerCase()===nom);
+  const k=normNombre(it.nombre);
+  const p=patron.find(x=>normNombre(x.nombre)===k);
   return (p&&p.texto_voz&&p.texto_voz.trim())?p.texto_voz.trim():it.nombre;
 }
 // Cantidad para el AUDIO: las cantidades tipo código (con "/", ej. 24/1, 32/1)
@@ -1346,7 +1364,7 @@ function limpiarVoz(txt){
 // Texto de UN producto. Usa la voz del Patrón si existe; si no, el nombre crudo
 // -> el comportamiento audible es idéntico al previo cuando no hay texto_voz.
 function textoProducto(it){
-  return `${it.categoria}. ${limpiarVoz(vozDe(it))}.${cantidadVoz(it.cantidad)}`;
+  return `${catLect(it)}. ${limpiarVoz(vozDe(it))}.${cantidadVoz(it.cantidad)}`;
 }
 // ─── Modo de lectura POR CATEGORÍA (Sección 2) ───
 // Cantidad en formato "cantidad, " (precede al nombre). Las cantidades tipo
@@ -1358,13 +1376,13 @@ function cantidadVozCat(c){
 }
 // ¿El item en la posición i abre una categoría nueva respecto del anterior?
 function esPrimeroDeCat(i){
-  return i===0 || (allItems[i-1]||{}).categoria!==(allItems[i]||{}).categoria;
+  return i===0 || catLect(allItems[i-1])!==catLect(allItems[i]);
 }
 // Texto hablado de un producto en modo categoría: el encabezado de categoría se
 // dice UNA sola vez (al abrir el grupo); el resto son solo "cantidad, nombre".
 function textoProductoCat(it,primero){
   const cuerpo=`${cantidadVozCat(it.cantidad)}${limpiarVoz(vozDe(it))}`;
-  return primero ? `${it.categoria}. ${cuerpo}` : cuerpo;
+  return primero ? `${catLect(it)}. ${cuerpo}` : cuerpo;
 }
 
 // ─── Chime de transición entre categorías (Web Audio, generado) ───
