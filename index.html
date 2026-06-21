@@ -403,6 +403,7 @@ input[type=file]{display:none}
         Define el orden fijo en que se leerán los productos en <em>todas</em> las listas, sin importar si vienen de cámara, archivo o entrada manual. Si un producto no está en el patrón, aparece al final. Puedes reordenar arrastrando ⠿.
       </div>
       <div id="pat-list"></div>
+      <datalist id="dl-pat"></datalist>
       <div class="g2">
         <button class="btn byellow" id="btn-pat-add"><span class="bi">+</span>Agregar</button>
         <button class="btn bgreen" id="btn-pat-desde-cat"><span class="bi">📋</span>Desde catálogo</button>
@@ -546,7 +547,7 @@ input[type=file]{display:none}
     <div class="mhdl"></div><div class="mtit">Agregar producto</div>
     <div class="fld"><label>Categoría</label><select id="ap-cat" class="inp sel"></select></div>
     <div class="fld"><label>Producto</label><select id="ap-prod" class="inp sel"></select></div>
-    <div class="fld"><label>O escribe nombre</label><input type="text" id="ap-nm" class="inp" placeholder="Nombre libre" autocomplete="off"></div>
+    <div class="fld"><label>O escribe nombre</label><input type="text" id="ap-nm" class="inp" placeholder="Nombre libre" autocomplete="off" list="dl-ap"><datalist id="dl-ap"></datalist></div>
     <div class="fld"><label>Cantidad</label><input type="text" id="ap-qty" class="inp" placeholder="Ej: 24" autocomplete="off" inputmode="numeric"></div>
     <div class="g2"><button class="btn bout" onclick="cerrarMov('m-add-prod')">Cancelar</button><button class="btn bgreen" id="btn-ap-add">+ Agregar</button></div>
   </div>
@@ -571,7 +572,8 @@ input[type=file]{display:none}
   <div class="mhdl"></div><div class="mtit">Crear lista manual</div>
   <div class="fld"><label>Categoría</label><select id="m-cat" class="inp sel"></select></div>
   <div class="fld"><label>Producto (lista)</label><select id="m-prod" class="inp sel"></select></div>
-  <div class="fld"><label>O escribe nombre</label><input type="text" id="m-nm" class="inp" placeholder="Nombre libre" autocomplete="off"></div>
+  <div class="fld"><label>O escribe nombre</label><input type="text" id="m-nm" class="inp" placeholder="Nombre libre" autocomplete="off" list="dl-man"><datalist id="dl-man"></datalist></div>
+  <div class="fld" id="m-cat-hint-wrap" style="display:none;margin-top:-4px"><span id="m-cat-hint" style="font-size:.7rem;color:var(--green)"></span></div>
   <div class="fld"><label>Cantidad</label><input type="text" id="m-qty" class="inp" placeholder="Ej: 24" autocomplete="off" inputmode="numeric"></div>
   <button class="btn bgreen bfull" id="btn-m-add">+ Agregar</button>
   <div id="m-list" style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto"></div>
@@ -662,6 +664,47 @@ function saveListas(){localStorage.setItem('bon_listas',JSON.stringify(listas));
 function normNombre(s){
   return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 }
+// ─── Mejora D: diccionario de nombres + sugerencia de categoría ───
+// Índice de nombres únicos vistos en facturas reales (listas[], primario) y en
+// el catálogo (secundario). Dedup por normNombre conservando la forma de texto
+// más frecuente. Cada entrada lleva frecuencia y la categoría más usada.
+function construirDiccionarioNombres(){
+  const idx={}; // norm -> {nombre, freq, formas:{texto:conteo}, cats:{cat:conteo}}
+  const sumar=(nombre,cat,peso)=>{
+    const n=normNombre(nombre);if(!n)return;
+    const e=idx[n]||(idx[n]={norm:n,freq:0,formas:{},cats:{}});
+    e.freq+=peso;
+    const t=String(nombre||'').trim();if(t)e.formas[t]=(e.formas[t]||0)+peso;
+    if(cat)e.cats[cat]=(e.cats[cat]||0)+peso;
+  };
+  // Primario: nombres tal cual vinieron en facturas.
+  listas.forEach(l=>(l.items||[]).forEach(it=>sumar(it.nombre,it.categoria,2)));
+  // Secundario: catálogo manual.
+  catalogo.forEach(p=>sumar(p.n,p.c,1));
+  return Object.values(idx).map(e=>{
+    const nombre=Object.keys(e.formas).sort((a,b)=>e.formas[b]-e.formas[a])[0]||'';
+    const cat=Object.keys(e.cats).sort((a,b)=>e.cats[b]-e.cats[a])[0]||'';
+    return {nombre,cat,freq:e.freq};
+  }).sort((a,b)=>b.freq-a.freq);
+}
+// Map(normNombre -> categoría) desde el Patrón, para la sugerencia de categoría.
+function indicePatronPorNombre(){
+  const m=new Map();
+  patron.forEach(p=>{const n=normNombre(p.nombre);if(n&&!m.has(n))m.set(n,p.categoria||'Otros');});
+  return m;
+}
+// Llena un <datalist> con el diccionario, poniendo primero los nombres de la
+// categoría prioritaria (el contexto en que se escribe) y luego el resto.
+function poblarDatalist(idDatalist,catPrioritaria){
+  const dl=document.getElementById(idDatalist);if(!dl)return;
+  const dic=construirDiccionarioNombres();
+  const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+  const prio=[],resto=[];
+  dic.forEach(d=>{(catPrioritaria&&d.cat===catPrioritaria?prio:resto).push(d);});
+  dl.innerHTML=[...prio,...resto].slice(0,300)
+    .map(d=>`<option value="${esc(d.nombre)}"${d.cat?` label="${esc(d.cat)}"`:''}>`).join('');
+}
+
 // Categoría de LECTURA de un item: la del Patrón si el item está emparejado
 // (_catLect), si no la que traía de la factura. Nunca toca el dato guardado.
 function catLect(it){return (it&&it._catLect)||(it&&it.categoria)||'Otros';}
@@ -1593,9 +1636,25 @@ function poblarManProd(cat){
   const sel=document.getElementById('m-prod');
   sel.innerHTML='<option value="">— Selecciona —</option>'+catalogo.filter(p=>p.c===cat).map(p=>`<option>${p.n}</option>`).join('');
 }
-document.getElementById('m-cat').addEventListener('change',function(){poblarManProd(this.value);});
+document.getElementById('m-cat').addEventListener('change',function(){poblarManProd(this.value);poblarDatalist('dl-man',this.value);});
 document.getElementById('m-prod').addEventListener('change',function(){if(this.value)document.getElementById('m-nm').value=this.value;});
-document.getElementById('btn-manual-open').addEventListener('click',()=>{manItems=[];poblarManCat();renderManList();abrirMov('m-manual');});
+// Sugerencia de categoría (no forzada): si el nombre coincide con un producto
+// del Patrón, se auto-selecciona su categoría; el usuario puede cambiarla.
+document.getElementById('m-nm').addEventListener('change',function(){
+  const wrap=document.getElementById('m-cat-hint-wrap');
+  const hint=document.getElementById('m-cat-hint');
+  const cat=indicePatronPorNombre().get(normNombre(this.value));
+  if(cat&&document.getElementById('m-cat').value!==cat){
+    const sel=document.getElementById('m-cat');
+    if([...sel.options].some(o=>o.value===cat)){
+      sel.value=cat;poblarManProd(cat);poblarDatalist('dl-man',cat);
+      hint.textContent='💡 Categoría sugerida por el Patrón: '+cat;wrap.style.display='block';
+      return;
+    }
+  }
+  wrap.style.display='none';
+});
+document.getElementById('btn-manual-open').addEventListener('click',()=>{manItems=[];poblarManCat();poblarDatalist('dl-man',document.getElementById('m-cat').value);document.getElementById('m-cat-hint-wrap').style.display='none';renderManList();abrirMov('m-manual');});
 document.getElementById('btn-m-cancel').addEventListener('click',()=>{manItems=[];cerrarMov('m-manual');});
 document.getElementById('btn-m-add').addEventListener('click',()=>{
   const cat=document.getElementById('m-cat').value;
@@ -1604,6 +1663,7 @@ document.getElementById('btn-m-add').addEventListener('click',()=>{
   if(!nm||!qty){alert('Completa producto y cantidad.');return;}
   manItems.push({categoria:cat,nombre:nm,cantidad:qty});
   document.getElementById('m-nm').value='';document.getElementById('m-qty').value='';document.getElementById('m-prod').value='';
+  document.getElementById('m-cat-hint-wrap').style.display='none';
   renderManList();
 });
 function renderManList(){
@@ -1631,12 +1691,13 @@ function poblarApCat(){
   const sel=document.getElementById('ap-cat');
   sel.innerHTML=cats.map(c=>`<option>${c}</option>`).join('');
   poblarApProd(sel.value);
+  poblarDatalist('dl-ap',sel.value);
 }
 function poblarApProd(cat){
   const sel=document.getElementById('ap-prod');
   sel.innerHTML='<option value="">— Selecciona —</option>'+catalogo.filter(p=>p.c===cat).map(p=>`<option>${p.n}</option>`).join('');
 }
-document.getElementById('ap-cat').addEventListener('change',function(){poblarApProd(this.value);});
+document.getElementById('ap-cat').addEventListener('change',function(){poblarApProd(this.value);poblarDatalist('dl-ap',this.value);});
 document.getElementById('ap-prod').addEventListener('change',function(){if(this.value)document.getElementById('ap-nm').value=this.value;});
 // Abre "Agregar producto" con la categoría del grupo ya preseleccionada (botón
 // "+" por categoría del Patrón). El producto entra al final de esa categoría.
@@ -1646,6 +1707,7 @@ function abrirAddPatron(cat){
   const sel=document.getElementById('ap-cat');
   if([...sel.options].some(o=>o.value===cat))sel.value=cat;
   poblarApProd(sel.value);
+  poblarDatalist('dl-ap',sel.value);
   document.getElementById('ap-nm').value='';
   document.getElementById('ap-qty').value='';
   abrirMov('m-add-prod');
@@ -1740,7 +1802,7 @@ function renderPatron(){
       d.innerHTML=`<div style="display:flex;align-items:center;gap:6px">`+
         `<span class="pat-grip-row" title="Reordenar dentro de la categoría">⠿</span>`+
         `<span class="pat-grip-move" title="Mover a otra categoría">⇆</span>`+
-        `<input class="pn" data-i="${i}" value="${esc(p.nombre)}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)">`+
+        `<input class="pn" data-i="${i}" list="dl-pat" data-cat="${esc(cat)}" value="${esc(p.nombre)}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)">`+
         `<input class="pq" data-i="${i}" value="${esc(p.cantidad)}" placeholder="Cant." style="border:none;outline:none;width:62px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent">`+
         `<button class="pat-del" onclick="delPat(${i})">✕</button></div>`+
         `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:118px"><span style="font-size:.78rem;flex-shrink:0">🔊</span>`+
@@ -1753,6 +1815,8 @@ function renderPatron(){
     cont.appendChild(grupo);
   });
   cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].nombre=e.target.value;savePat();}));
+  // Al enfocar un nombre del Patrón, el datalist prioriza la categoría de esa fila.
+  cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('focus',e=>poblarDatalist('dl-pat',e.target.dataset.cat)));
   cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].cantidad=e.target.value;savePat();}));
   // texto_voz (Sección 1): lo escribe el usuario a mano, opcional. Vacío => se
   // lee el nombre crudo. Vive solo en el Patrón; no se sugiere automáticamente.

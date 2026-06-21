@@ -27,7 +27,7 @@ Leyenda de estado: ✅ implementado · ⚠️ parcial · ❌ pendiente.
 | `A-bug-orden-patron-al-dictar.md` | Bug: el orden del Patrón no siempre se respeta al dictar | ✅ |
 | `B-senal-stop-sin-coincidencia.md` | Señal 🛑 informativa para productos sin coincidencia en el Patrón | ❌ |
 | `C-arrastre-entre-categorias.md` | Arrastre ⇄ entre categorías (intermitente) + registro automático de intentos | ⚠️ en curso |
-| `D-autocompletado-nombres-patron.md` | Autocompletado de nombres en el Patrón desde facturas escaneadas | ❌ |
+| `D-autocompletado-nombres-patron.md` | Autocompletado de nombres desde facturas (datalist) + sugerencia de categoría en lista manual | ✅ |
 | `E-panel-dictado-pantalla-completa.md` | Panel de dictado a pantalla completa | ❌ |
 | `F-cantidades-grandes-lista-voz.md` | Números de cantidad más grandes en la lista del lector de voz | ❌ |
 | `G-confianza-nombre-producto.md` | Extender la confianza por campo también al nombre del producto | ❌ |
