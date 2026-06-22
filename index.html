@@ -713,6 +713,14 @@ function poblarDatalist(idDatalist,catPrioritaria){
 // Categoría de LECTURA de un item: la del Patrón si el item está emparejado
 // (_catLect), si no la que traía de la factura. Nunca toca el dato guardado.
 function catLect(it){return (it&&it._catLect)||(it&&it.categoria)||'Otros';}
+// Categoría de un producto SEGÚN EL PATRÓN, por nombre EXACTO normalizado. La IA
+// ya no clasifica: al analizar una factura, la categoría sale de aquí (o 'Otros'
+// si el nombre no coincide con ningún producto del Patrón).
+function categoriaDesdePatron(nombre){
+  const n=normNombre(nombre);if(!n)return 'Otros';
+  const p=patron.find(x=>normNombre(x.nombre)===n);
+  return p?(p.categoria||'Otros'):'Otros';
+}
 // Devuelve una COPIA de 'items' en el orden de lectura del Patrón VIGENTE:
 // recorre patronOrdenado() (categoría, orden) y empareja por nombre normalizado;
 // los emparejados heredan la categoría del Patrón (_catLect) e incluyen duplicados
@@ -969,9 +977,11 @@ async function analizar(){
       document.getElementById('scan-sec').style.display='block';
       setBadge('Sin datos','');alert('No se detectaron productos.');return;
     }
-    // Revisión = factura CRUDA: nombre, categoría y orden tal como vinieron.
-    // La transformación del Patrón (orden/_catLect) se aplica solo al dictar
-    // (iniciarDictado → ordenarPorPatron). No transformar antes de tiempo.
+    // La IA NO clasifica: la categoría sale del Patrón por nombre EXACTO, o
+    // "Otros" si no hay coincidencia. Nombre, cantidad, precio y total quedan
+    // CRUDOS y el orden de factura intacto; la transformación (orden/_catLect)
+    // se aplica solo al dictar (iniciarDictado → ordenarPorPatron).
+    items.forEach(it=>{it.categoria=categoriaDesdePatron(it.nombre);});
     allItems=items;
     document.getElementById('cargando').style.display='none';
     document.getElementById('scan-sec').style.display='block';
@@ -988,10 +998,10 @@ async function analizar(){
 }
 
 async function analizarBackend(){
-  const cats=categorias.join(', ');
+  // La IA ya no clasifica: no se le envían categorías.
   const res=await fetch('/api/analyze',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({provider:aiProv,image:capUrl,cats})
+    body:JSON.stringify({provider:aiProv,image:capUrl})
   });
   const d=await res.json().catch(()=>({error:'Respuesta inválida del servidor.'}));
   if(!res.ok)throw new Error(d.error||('Error '+res.status));
