@@ -156,7 +156,11 @@ input[type=file]{display:none}
 .pat-row select{font-size:.68rem;color:var(--green);font-weight:700;max-width:82px}
 .pat-nm{flex:1;font-size:.82rem;color:var(--text)}
 .pat-qt{width:74px;text-align:right;font-size:.76rem;color:var(--red);font-weight:700}
-.pat-del{background:none;border:none;color:var(--muted);font-size:.88rem;cursor:pointer;padding:2px 3px}
+/* min-width:0 deja que el nombre (flex:1) ceda ancho; sin esto la fila se
+   desborda y el ✕ queda recortado por el overflow:hidden del grupo. */
+.pat-row .pn{min-width:0}
+.pat-row .pq{flex-shrink:0}
+.pat-del{background:none;border:none;color:var(--muted);font-size:.88rem;cursor:pointer;padding:2px 3px;flex-shrink:0}
 /* Patrón agrupado por categoría + arrastre táctil (orden dentro de categoría
    y orden entre categorías). Las manijas usan touch-action:none para que el
    dedo arrastre en vez de hacer scroll. */
