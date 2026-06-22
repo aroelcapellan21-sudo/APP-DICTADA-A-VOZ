@@ -348,6 +348,7 @@ input[type=file]{display:none}
     <div class="card-bd" style="padding:9px 10px">
       <div id="edit-antes-list"></div>
       <button class="btn bgreen bfull" id="btn-edit-add" style="margin-top:6px"><span class="bi">+</span>Agregar producto</button>
+      <button class="btn bout-red bfull" id="btn-descartar" style="margin-top:6px">🗑 Descartar análisis</button>
     </div>
   </div>
 
@@ -1091,6 +1092,27 @@ window.delEditAntes=function(i){allItems.splice(i,1);renderEditAntes();};
 document.getElementById('btn-edit-add').addEventListener('click',()=>{
   addProdTarget='antes';poblarApCat();abrirMov('m-add-prod');
 });
+
+// Descarta TODO el análisis en curso (productos detectados + imagen capturada)
+// y deja la pantalla lista para empezar de cero, sin borrar producto por
+// producto. No guarda nada en el historial.
+function descartarAnalisis(){
+  if(!confirm('¿Descartar todo el análisis y empezar de nuevo? Se perderán los productos detectados (no se guarda nada).'))return;
+  allItems=[];capUrl=null;
+  document.getElementById('edit-antes-list').innerHTML='';
+  document.getElementById('edit-antes-card').style.display='none';
+  document.getElementById('asig-card').style.display='none';
+  document.getElementById('lista-notas').value='';
+  document.getElementById('lista-nom-inp').value=nombreFecha();
+  const cs=document.getElementById('chofer-sel');if(cs)cs.value='';
+  // Limpiar la captura/cámara para volver al punto de partida.
+  if(typeof stopCam==='function')stopCam();
+  document.getElementById('cap-img').style.display='none';
+  document.getElementById('cap-img').src='';
+  ['cam-preview','cam-ctrl','analyze-row'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  setBadge('Listo','');
+}
+document.getElementById('btn-descartar').addEventListener('click',descartarAnalisis);
 
 // ════ GUARDAR LISTA ════
 document.getElementById('btn-guardar').addEventListener('click',()=>{
