@@ -969,7 +969,10 @@ async function analizar(){
       document.getElementById('scan-sec').style.display='block';
       setBadge('Sin datos','');alert('No se detectaron productos.');return;
     }
-    allItems=ordenarPorPatron(items);
+    // Revisión = factura CRUDA: nombre, categoría y orden tal como vinieron.
+    // La transformación del Patrón (orden/_catLect) se aplica solo al dictar
+    // (iniciarDictado → ordenarPorPatron). No transformar antes de tiempo.
+    allItems=items;
     document.getElementById('cargando').style.display='none';
     document.getElementById('scan-sec').style.display='block';
     renderEditAntes();
@@ -1727,7 +1730,8 @@ function renderManList(){
 }
 document.getElementById('btn-m-start').addEventListener('click',()=>{
   if(!manItems.length){alert('Agrega al menos un producto.');return;}
-  allItems=ordenarPorPatron([...manItems]);manItems=[];
+  // Revisión en el ORDEN DE CARGA; el Patrón se aplica solo al dictar.
+  allItems=[...manItems];manItems=[];
   cerrarMov('m-manual');renderManList();
   renderEditAntes();
   document.getElementById('edit-antes-card').style.display='block';
