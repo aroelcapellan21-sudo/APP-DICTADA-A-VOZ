@@ -1,83 +1,56 @@
-# Plan — Auto-enriquecimiento del catálogo con cada factura
+# Resumen — Trabajo completado el 2026-06-22
 
-> Plan en modo **solo lectura / sin tocar código**. Pendiente de aprobación del
-> usuario antes de implementar.
-> Fecha: 2026-06-22 · Rama: `main`
->
-> Regla fija del usuario aplicada aquí: *"Antes de tocar código, muéstrame el plan
-> y confirma que esto no afecta el Patrón, las categorías, ni nada de lo que ya
-> funciona."*
+> Todo lo de abajo está **implementado, pusheado a `main` y confirmado por el
+> usuario en el Xiaomi**, sirviéndose en producción
+> (https://app-dictada-a-voz.vercel.app).
+> Ninguno de estos cambios toca el Patrón (`bon_pat`), las categorías
+> (`bon_categorias`) ni el historial (`listas`).
 
-## Objetivo
+## 1. Migración del catálogo viejo — commit `2c5a090`
 
-El catálogo de productos (Ajustes → Catálogo) debe enriquecerse **automáticamente**
-con cada factura escaneada, igual que ya hace el diccionario. Cada nombre nuevo
-detectado en una factura real debe agregarse al catálogo si no existe ya, para que
-los desplegables de **lista manual** y **agregar producto** se mantengan
-actualizados solos, sin escribirlos a mano.
+- Instalaciones **nuevas** arrancan con **catálogo vacío** (ya no se siembran los
+  14 productos de ejemplo).
+- Constante `CATALOGO_SEED` con esos 14 productos, usada solo como referencia.
+- **Migración única** con bandera `bon_cat_seed_purgado`: al cargar, quita de
+  `bon_cat` solo los **14 pares EXACTOS** (categoría + nombre, con `trim`),
+  respetando todo lo demás. No se repite ni vuelve a borrar nombres re-agregados.
+- Toca: `bon_cat`, `bon_cat_seed_purgado`. No toca: Patrón, categorías, historial.
 
-## Plan propuesto
+## 2. Candado por categoría 🔒/🔓 en el Patrón — commit `2c5a090`
 
-### Dónde y cuándo
+- Botón 🔒/🔓 en la **esquina inferior derecha** de cada encabezado de categoría.
+- **Cerrado** bloquea SOLO el arrastre de productos: ⠿ (reordenar dentro) y ⇆
+  (mover a otra categoría), tanto para **salir** como para **entrar**.
+- Siguen funcionando: el **+** (agregar), la **✕** (borrar) y el reordenar la
+  **categoría entera** (⠿ del encabezado).
+- Estado en `bon_cat_locks` (helpers `estaBloqueada` / `toggleLock` / `saveLocks`).
+  Se propaga al renombrar y al borrar categoría.
 
-- Nueva función `enriquecerCatalogo(items)`.
-- Se llama dentro de `guardarListaFinal` (`index.html:1198-1227`), **después de
-  `saveListas()`** (línea 1216) y **antes del reset** de `allItems` (línea 1222),
-  cuando los productos ya están revisados y validados (el guardado está bloqueado
-  si hay anomalías, `index.html:1164`). Así solo entran nombres que pasaron la
-  revisión del usuario, no basura cruda del OCR.
-- Por `guardarListaFinal` pasan **todas** las listas que se guardan (escaneadas y
-  manuales), así que el enganche cubre ambos orígenes.
+## 3. Auto-enriquecimiento del catálogo — commit `b1c5372`
 
-### Qué hace `enriquecerCatalogo`
+- Al **guardar** una lista (escaneada o manual), `enriquecerCatalogo(allItems)`
+  dentro de `guardarListaFinal` agrega a `bon_cat` los **nombres nuevos**.
+- Dedup por **nombre normalizado** (`normNombre`), también dentro de la misma
+  factura. La **categoría** es la del item (del Patrón o `'Otros'`).
+- Refresca los desplegables (`poblarManCat` / `poblarApCat` / `renderCatalogo`),
+  así lista manual y agregar producto se mantienen al día solos.
+- Solo entran nombres ya revisados (el guardado se bloquea si hay anomalías).
 
-1. Recorre los items de la lista recién guardada.
-2. Para cada nombre, calcula `normNombre` (la **misma** normalización que usan el
-   Patrón y el diccionario: minúsculas, sin acentos ni puntuación).
-3. Si **no existe** ya en `catalogo` un producto con ese nombre normalizado →
-   agrega `{c: item.categoria, n: item.nombre}`.
-   - La **categoría** es la que el item ya trae (`categoriaDesdePatron` → categoría
-     del Patrón si coincide, o `'Otros'`). No se inventa nada nuevo.
-   - Dedup también dentro de la misma factura (si un nombre se repite, se agrega
-     una sola vez).
-4. Si agregó al menos uno: `localStorage.setItem('bon_cat', …)` y refresca los
-   desplegables (`poblarManCat`, `poblarApCat`) y `renderCatalogo`.
+## 4. README con URL real de producción — commit `8b1d80a`
 
-### Resultado
+- Reemplazado el placeholder `TU-APP.vercel.app` por
+  `https://app-dictada-a-voz.vercel.app` (encabezado y comprobación `/api/health`).
 
-Los desplegables "— Selecciona —" de **lista manual** (`m-prod`) y **agregar
-producto** (`ap-prod`), que se llenan filtrando `catalogo` por categoría
-(`index.html:1700, 1762`), se mantienen al día solos: cada producto nuevo de una
-factura real aparece bajo su categoría sin escribirlo a mano.
+## Verificación de producción
 
-## Confirmación de que NO afecta lo que ya funciona
+- `/api/health` → `HTTP 200`, `{"ok":true,"gemini":true,"claude":true,"patron":true}`.
+- `index.html` en vivo idéntico al local, con las marcas de cada release
+  (`CATALOGO_SEED`, `bon_cat_seed_purgado`, `pat-cat-lock`, `catLocks`,
+  `enriquecerCatalogo`).
+- Las cuatro funciones confirmadas funcionando por el usuario en el Xiaomi.
 
-| Componente | ¿Se toca? | Por qué |
-|---|---|---|
-| **Patrón** (`bon_pat`: orden, texto_voz, arrastre) | **NO** | Solo se escribe en `bon_cat`. |
-| **Categorías** (`bon_categorias`) | **NO** | Se guarda la categoría *como texto* en la entrada del catálogo; no se crean ni modifican categorías. |
-| **Historial** (`listas`) | **NO** | Se *leen* los items recién guardados; no se modifica ningún registro. La factura guardada sigue fiel. |
-| **Dictado / orden** (`ordenarPorPatron`) | **NO** | El dictado sigue derivando todo del Patrón; el catálogo no interviene en la lectura. |
-| **Migración de los 14** | **NO** | Independiente; los nombres nuevos no son seeds y la bandera ya está puesta. |
-| **Diccionario** (`construirDiccionarioNombres`) | Efecto neutro | Ya leía `catalogo` (peso 1). Reforzar un nombre que además viene de `listas` (peso 2) no cambia nada perceptible. |
+## Estado
 
-## Riesgos y mitigación
-
-- **Nombre raro pero válido que entre al catálogo:** solo ocurre tras la revisión
-  del usuario (el guardado exige líneas sin anomalías), y siempre se puede borrar
-  en Ajustes → Catálogo (la ✕ ya existe, `delProd`).
-- **Cambio futuro de categoría en el Patrón:** la entrada del catálogo conserva la
-  categoría con que se guardó (el catálogo es solo sugerencia para los
-  desplegables; **no** influye en el dictado, que siempre usa el Patrón).
-
-## Tres decisiones pendientes antes de tocar código
-
-1. **Alcance:** enganchar en `guardarListaFinal` cubre **escaneadas y manuales**
-   (lo más simple; en manuales casi siempre el nombre ya está en el catálogo, así
-   que es no-op). ¿Sirve así, o **solo escaneadas**? (esto último necesita añadir
-   una marca de origen a la lista, algo más de trabajo).
-2. **Dedup:** ¿por **nombre normalizado en todo el catálogo** (recomendado: nunca
-   duplica el mismo producto), o por **nombre+categoría** (permitiría el mismo
-   nombre en dos categorías distintas)?
-3. **Categoría a asignar:** la del item al guardar (Patrón o `'Otros'`).
-   ¿Confirmado?
+Árbol de trabajo limpio. No quedan tareas pendientes de esta tanda. Pendiente
+anterior aún abierto (de sesiones previas): señal 🛑 informativa para productos
+sin coincidencia en el Patrón — ver `mejoras/B-senal-stop-sin-coincidencia.md`.
