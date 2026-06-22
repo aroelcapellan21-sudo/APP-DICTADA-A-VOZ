@@ -712,11 +712,15 @@ function catLect(it){return (it&&it._catLect)||(it&&it.categoria)||'Otros';}
 // recorre patronOrdenado() (categoría, orden) y empareja por nombre normalizado;
 // los emparejados heredan la categoría del Patrón (_catLect) e incluyen duplicados
 // del mismo nombre. Los que NO están en el Patrón van al final, en orden de
-// factura. No muta los items originales, así el registro guardado de la lista
-// permanece fiel a lo capturado (Caso 5: dato fijo, lectura siempre al día).
+// factura. Finalmente REAGRUPA por categoría de lectura para que cada categoría
+// se anuncie UNA sola vez al dictar (sin tramos repetidos). No muta los items
+// originales, así el registro guardado permanece fiel a lo capturado (Caso 5).
 function ordenarPorPatron(items){
   const copia=items.map(it=>({...it}));
-  if(!patron.length)return copia;
+  if(!patron.length){                       // sin Patrón: igual se agrupa por categoría
+    copia.forEach(it=>{it._catLect=it.categoria||'Otros';});
+    return agruparPorCategoria(copia);
+  }
   const usados=new Array(copia.length).fill(false);
   const ord=[];
   patronOrdenado().forEach(p=>{
@@ -728,7 +732,27 @@ function ordenarPorPatron(items){
     });
   });
   copia.forEach((it,idx)=>{if(!usados[idx]){it._catLect=it.categoria||'Otros';ord.push(it);}});
-  return ord;
+  return agruparPorCategoria(ord);
+}
+// Agrupa de forma ESTABLE por categoría de lectura NORMALIZADA (sin
+// mayúsculas/acentos/espacios), así "Paletas", "paletas" y "Paletas " caen en el
+// mismo grupo y se anuncian una vez. La etiqueta mostrada se unifica: la de
+// 'categorias' si está registrada, si no la primera forma vista. Orden entre
+// grupos = 'categorias'; los no registrados van al final por primera aparición.
+// Dentro de cada grupo se preserva el orden ya calculado (Patrón primero, resto
+// en orden de factura) gracias al desempate estable por índice original.
+function agruparPorCategoria(arr){
+  const rank=new Map(),label=new Map();
+  const claveCat=c=>normNombre(c||'Otros')||'otros';
+  categorias.forEach((c,i)=>{const k=claveCat(c);if(!rank.has(k)){rank.set(k,i);label.set(k,c);}});
+  let extra=categorias.length;
+  arr.forEach(it=>{const k=claveCat(it._catLect);if(!rank.has(k)){rank.set(k,extra++);label.set(k,it._catLect||'Otros');}});
+  // Unifica la etiqueta de lectura por grupo (clave normalizada -> canónica).
+  arr.forEach(it=>{it._catLect=label.get(claveCat(it._catLect));});
+  return arr
+    .map((it,i)=>({it,i}))
+    .sort((a,b)=>(rank.get(claveCat(a.it._catLect))-rank.get(claveCat(b.it._catLect)))||(a.i-b.i))
+    .map(o=>o.it);
 }
 
 // ════ INIT ════
