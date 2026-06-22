@@ -1214,6 +1214,9 @@ function guardarListaFinal(chId,notas){
   });
   if(listas.length>500)listas=listas.slice(0,500);
   saveListas();
+  // Enriquece el catálogo con los nombres nuevos de esta lista (escaneada o
+  // manual), antes de limpiar allItems. Mantiene al día los desplegables.
+  enriquecerCatalogo(allItems);
   // Reset
   document.getElementById('edit-antes-card').style.display='none';
   document.getElementById('asig-card').style.display='none';
@@ -1224,6 +1227,28 @@ function guardarListaFinal(chId,notas){
   document.getElementById('cap-img').src='';
   renderChoferes();renderDespacho();
   alert('✅ Lista guardada y asignada.');
+}
+
+// Auto-enriquecimiento del catálogo: tras guardar una lista (escaneada o manual),
+// agrega al catálogo los nombres NUEVOS (ausentes por nombre normalizado) con la
+// categoría que trae el item (del Patrón o 'Otros'), deduplicando también dentro
+// de la misma factura. Mantiene al día los desplegables de lista manual y agregar
+// producto. NO toca Patrón, categorías ni historial; solo escribe en bon_cat.
+function enriquecerCatalogo(items){
+  const existentes=new Set(catalogo.map(p=>normNombre(p.n)));
+  let agregados=0;
+  (items||[]).forEach(it=>{
+    const nombre=((it&&it.nombre)||'').trim();
+    const n=normNombre(nombre);
+    if(!n||existentes.has(n))return;
+    existentes.add(n);
+    catalogo.push({c:(it.categoria||'Otros'),n:nombre});
+    agregados++;
+  });
+  if(agregados){
+    localStorage.setItem('bon_cat',JSON.stringify(catalogo));
+    poblarManCat();poblarApCat();renderCatalogo();
+  }
 }
 
 // ════ DESPACHO BURBUJAS ════
