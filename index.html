@@ -121,6 +121,13 @@ input[type=file]{display:none}
 .ch-nom{font-size:.8rem;font-weight:700;color:var(--text);text-align:center;line-height:1.2}
 .ch-fic{font-size:.66rem;color:var(--muted);text-align:center}
 .ch-edit{position:absolute;top:5px;right:7px;background:none;border:none;font-size:.82rem;cursor:pointer;color:var(--muted);padding:2px}
+/* Mejora I — franja de NOTA del despacho en la burbuja (ámbar 📝). Distinta del
+   futuro botón Novedades (que será de color llamativo + otro ícono). */
+.bnota{position:absolute;left:-2px;top:6px;z-index:2;width:22px;height:22px;border-radius:7px;border:none;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;line-height:1;padding:0;background:#fff;color:#bbb;box-shadow:0 0 0 1px var(--border);opacity:.55}
+.bnota.has{background:var(--yellow);color:#5d4037;box-shadow:0 0 0 2px rgba(249,168,37,.45);opacity:1}
+/* Mejora I — chofer "lleno" (tiene lista de hoy): sombra/realce verde + clicable. */
+.ch-card.lleno{cursor:pointer;border-color:var(--green);box-shadow:0 4px 14px rgba(46,125,50,.30),inset 0 0 0 9999px rgba(46,125,50,.05)}
+.ch-card.lleno:active{transform:scale(.98)}
 .ch-add{background:var(--bg);border-radius:14px;border:2px dashed var(--border);padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;min-height:110px}
 .ch-add span{font-size:1.6rem}
 .ch-add p{font-size:.71rem;color:var(--muted)}
@@ -501,14 +508,35 @@ input[type=file]{display:none}
         <div id="mlp-notas" style="font-size:.72rem;color:var(--muted);font-style:italic;margin-top:2px"></div>
       </div>
     </div>
+    <button class="btn bout bfull" id="btn-mlp-asignar" style="margin-bottom:6px"><span class="bi">👤</span>Asignar / cambiar chofer</button>
     <div id="mlp-edit-list" style="max-height:40vh;overflow-y:auto"></div>
     <button class="btn bgreen bfull" id="btn-mlp-add"><span class="bi">+</span>Agregar producto</button>
+    <div class="g2" style="margin-top:2px">
+      <button class="btn bgreen bfull" id="btn-mlp-wa"><span class="bi">💬</span>WhatsApp</button>
+      <button class="btn bout bfull" id="btn-mlp-share"><span class="bi">📤</span>Compartir</button>
+    </div>
     <div class="g2" style="margin-top:2px">
       <button class="btn bout" onclick="cerrarMov('m-lista-panel')">Cerrar</button>
       <button class="btn bblue bfull" id="btn-mlp-dictar"><span class="bi">🔊</span>Leer lista</button>
     </div>
   </div>
 </div>
+
+<!-- MODAL: NOTA DEL DESPACHO POR LISTA/CHOFER (Mejora I) -->
+<div class="mov" id="m-nota-chofer"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">📝 Nota del despacho</div>
+  <p style="font-size:.74rem;color:var(--muted);margin:0 0 6px">Nota del despachador sobre este chofer/lista (no requiere contraseña).</p>
+  <textarea id="nota-ch-inp" class="inp" rows="4" placeholder="Escribe la nota..." style="resize:vertical"></textarea>
+  <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-nota-chofer')">Cancelar</button><button class="btn bgreen" id="btn-nota-ch-save">Guardar</button></div>
+</div></div>
+
+<!-- MODAL: ASIGNAR / CAMBIAR CHOFER A UNA LISTA (Mejora I) -->
+<div class="mov" id="m-asignar-ch"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">👤 Asignar chofer</div>
+  <p style="font-size:.74rem;color:var(--muted);margin:0 0 6px">Si el chofer ya tiene una lista de hoy, se pedirá la contraseña de administrador.</p>
+  <div class="fld"><label>Chofer</label><select id="asignar-ch-sel" class="inp sel"></select></div>
+  <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-asignar-ch')">Cancelar</button><button class="btn bblue" id="btn-asignar-ch-ok">Asignar</button></div>
+</div></div>
 
 <!-- MODAL: DICTADO -->
 <div class="mov" id="m-dictado">
@@ -689,6 +717,27 @@ function nombreFecha(){
 }
 function hoyStr(){return new Date().toLocaleDateString('es-DO');}
 function grupBy(items){return items.reduce((g,it)=>{const c=it.categoria||'Otros';if(!g[c])g[c]=[];g[c].push(it);return g;},{});}
+// ─── Mejora I — Choferes/Despacho (helpers) ───
+// Número de ficha para ordenar (extrae los dígitos; sin número → al final).
+function fichaNum(ch){const m=String((ch&&ch.ficha)||'').match(/\d+/);return m?parseInt(m[0],10):Number.MAX_SAFE_INTEGER;}
+// Copia de choferes ordenada por ficha ascendente (no muta el almacenamiento).
+function choferesOrdenados(){return choferes.slice().sort((a,b)=>fichaNum(a)-fichaNum(b));}
+// Lista de HOY de un chofer (la más reciente si tiene varias), o null.
+function listaDeHoyDeChofer(chId){return listas.filter(l=>l.chofer&&l.chofer.id==chId&&l.fechaStr===hoyStr()).sort((a,b)=>b.id-a.id)[0]||null;}
+// Texto para compartir una lista: encabezado + productos agrupados por categoría.
+function textoListaParaCompartir(lista){
+  const ch=lista.chofer;
+  let t=`📋 ${lista.nombre}\n`;
+  if(ch)t+=`👤 ${ch.nombre} · Ficha: ${ch.ficha}\n`;
+  t+=`🗓 ${lista.fecha}\n`;
+  if(lista.notas)t+=`📝 ${lista.notas}\n`;
+  const g=grupBy(lista.items||[]);
+  for(const [cat,prods] of Object.entries(g)){
+    t+=`\n*${cat}*\n`;
+    prods.forEach(p=>{t+=`• ${p.nombre} — ${p.cantidad}\n`;});
+  }
+  return t.trim();
+}
 function iniciales(n){return n.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';}
 function strColor(s){const c=['#d32f2f','#1565c0','#2e7d32','#6a1b9a','#e65100','#00695c','#4e342e','#37474f'];let h=0;for(let i=0;i<s.length;i++)h=s.charCodeAt(i)+((h<<5)-h);return c[Math.abs(h)%c.length];}
 function setBadge(t,c){const b=document.getElementById('badge');b.textContent=t;b.className=c||'';}
@@ -1254,9 +1303,11 @@ function enriquecerCatalogo(items){
 // ════ DESPACHO BURBUJAS ════
 function renderDespacho(){
   const hoy=hoyStr();
+  // Orden por ficha del chofer (menor→mayor); sin chofer al final.
+  const porFicha=(a,b)=>fichaNum(a.chofer||{})-fichaNum(b.chofer||{});
   const listasHoy=listas.filter(l=>l.fechaStr===hoy);
-  const pendientes=listasHoy.filter(l=>!l.escuchada);
-  const escuchadas=listasHoy.filter(l=>l.escuchada);
+  const pendientes=listasHoy.filter(l=>!l.escuchada).slice().sort(porFicha);
+  const escuchadas=listasHoy.filter(l=>l.escuchada).slice().sort(porFicha);
   const pCont=document.getElementById('burbs-pendientes');
   const eCont=document.getElementById('burbs-escuchadas');
 
@@ -1268,7 +1319,8 @@ function renderDespacho(){
       const b=document.createElement('div');b.className='burbuja';
       const color=ch?strColor(ch.nombre):'#757575';
       let avaInner=ch&&ch.foto?`<img src="${ch.foto}">`:(ch?iniciales(ch.nombre):'?');
-      b.innerHTML=`<div class="bava" style="background:${color}">${avaInner}</div><div class="bnom">${ch?ch.nombre:'Sin chofer'}</div><div class="bfic">${ch?ch.ficha:''}</div>`;
+      b.innerHTML=`<button class="bnota${l.notas?' has':''}" title="${l.notas?'Nota del despacho':'Agregar nota'}">📝</button><div class="bava" style="background:${color}">${avaInner}</div><div class="bnom">${ch?ch.nombre:'Sin chofer'}</div><div class="bfic">${ch?ch.ficha:''}</div>`;
+      b.querySelector('.bnota').addEventListener('click',e=>{e.stopPropagation();abrirNotaChofer(l.id);});
       b.addEventListener('click',()=>abrirPanelLista(l.id));
       pCont.appendChild(b);
     });
@@ -1353,6 +1405,60 @@ document.getElementById('btn-ap-add').addEventListener('click',()=>{
   }
   document.getElementById('ap-nm').value='';document.getElementById('ap-qty').value='';
   cerrarMov('m-add-prod');
+});
+
+// ─── Mejora I — Nota del despacho, asignar chofer y compartir lista ───
+let notaListaId=null;
+function abrirNotaChofer(listaId){
+  notaListaId=listaId;
+  const l=listas.find(x=>x.id==listaId);
+  document.getElementById('nota-ch-inp').value=(l&&l.notas)?l.notas:'';
+  abrirMov('m-nota-chofer');
+}
+document.getElementById('btn-nota-ch-save').addEventListener('click',()=>{
+  const l=listas.find(x=>x.id==notaListaId);
+  if(!l){cerrarMov('m-nota-chofer');return;}
+  l.notas=document.getElementById('nota-ch-inp').value.trim();
+  saveListas();cerrarMov('m-nota-chofer');renderDespacho();
+  // Si el panel de esa lista está abierto, refresca la nota visible.
+  if(activoListaId==notaListaId)document.getElementById('mlp-notas').textContent=l.notas?'📝 '+l.notas:'';
+});
+
+function abrirAsignarChofer(){
+  if(!activoListaId)return;
+  const sel=document.getElementById('asignar-ch-sel');
+  sel.innerHTML=choferesOrdenados().map(c=>`<option value="${c.id}">${c.nombre} (${c.ficha})</option>`).join('');
+  const l=listas.find(x=>x.id==activoListaId);
+  if(l&&l.chofer)sel.value=l.chofer.id;
+  abrirMov('m-asignar-ch');
+}
+document.getElementById('btn-mlp-asignar').addEventListener('click',abrirAsignarChofer);
+document.getElementById('btn-asignar-ch-ok').addEventListener('click',()=>{
+  const listaId=activoListaId;
+  const chId=document.getElementById('asignar-ch-sel').value;
+  const lista=listas.find(l=>l.id==listaId),ch=choferes.find(c=>c.id==chId);
+  if(!lista||!ch){cerrarMov('m-asignar-ch');return;}
+  cerrarMov('m-asignar-ch');
+  const aplicar=()=>{
+    lista.chofer={id:ch.id,nombre:ch.nombre,ficha:ch.ficha,foto:ch.foto||null};
+    saveListas();renderDespacho();renderChoferes();abrirPanelLista(listaId);
+  };
+  // Ocupado = el chofer ya tiene OTRA lista de hoy → contraseña admin.
+  const ocupado=listas.some(l=>l.chofer&&l.chofer.id==chId&&l.fechaStr===hoyStr()&&l.id!=listaId);
+  if(ocupado)pedirClave('🔒 Chofer con lista de hoy',aplicar);
+  else aplicar();
+});
+
+document.getElementById('btn-mlp-wa').addEventListener('click',()=>{
+  const l=listas.find(x=>x.id==activoListaId);if(!l)return;
+  window.open('https://wa.me/?text='+encodeURIComponent(textoListaParaCompartir(l)),'_blank');
+});
+document.getElementById('btn-mlp-share').addEventListener('click',()=>{
+  const l=listas.find(x=>x.id==activoListaId);if(!l)return;
+  const texto=textoListaParaCompartir(l);
+  if(navigator.share)navigator.share({title:l.nombre,text:texto}).catch(()=>{});
+  else if(navigator.clipboard)navigator.clipboard.writeText(texto).then(()=>alert('Lista copiada al portapapeles.')).catch(()=>alert(texto));
+  else alert(texto);
 });
 
 document.getElementById('btn-mlp-dictar').addEventListener('click',()=>{
@@ -1681,10 +1787,12 @@ document.getElementById('fab-dictado').addEventListener('click',maximizarDictado
 // ════ CHOFERES ════
 function renderChoferes(){
   const grid=document.getElementById('ch-grid');grid.innerHTML='';
-  choferes.forEach(c=>{
-    const div=document.createElement('div');div.className='ch-card';
+  choferesOrdenados().forEach(c=>{
+    const ld=listaDeHoyDeChofer(c.id);   // lista de hoy → tarjeta "llena" y clicable
+    const div=document.createElement('div');div.className='ch-card'+(ld?' lleno':'');
     const avaHTML=c.foto?`<div class="ch-ava"><img src="${c.foto}"></div>`:`<div class="ch-ava" style="background:${strColor(c.nombre)}">${iniciales(c.nombre)}</div>`;
     div.innerHTML=`<button class="ch-edit" onclick="abrirModalChofer('${c.id}',event)">✏️</button><button class="ch-edit" style="left:7px;right:auto;color:#d32f2f" onclick="borrarChofer('${c.id}',event)">🗑</button>${avaHTML}<div class="ch-nom">${c.nombre}</div><div class="ch-fic">${c.ficha}</div>`;
+    if(ld)div.addEventListener('click',()=>abrirPanelLista(ld.id));
     grid.appendChild(div);
   });
   const add=document.createElement('div');add.className='ch-add';
@@ -2263,10 +2371,11 @@ document.getElementById('btn-del-ch').addEventListener('click',()=>{if(confirm('
 
 // ════ HELPERS SELECT ════
 function poblarSelCh(){
+  const ord=choferesOrdenados();
   const s=document.getElementById('chofer-sel');s.innerHTML='<option value="">— Sin chofer —</option>';
-  choferes.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=`${c.nombre} (${c.ficha})`;s.appendChild(o);});
+  ord.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=`${c.nombre} (${c.ficha})`;s.appendChild(o);});
   const f=document.getElementById('filtro-ch');f.innerHTML='<option value="">Todos los choferes</option>';
-  choferes.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.nombre;f.appendChild(o);});
+  ord.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.nombre;f.appendChild(o);});
 }
 
 // ════ RED ════
