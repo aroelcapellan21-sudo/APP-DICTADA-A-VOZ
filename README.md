@@ -1,5 +1,7 @@
 # BON — Lector de Facturas (Polar Breeze)
 
+**Producción:** https://app-dictada-a-voz.vercel.app
+
 PWA para leer facturas de helados BON con IA (Gemini o Claude). El frontend
 está en `index.html` y un backend Express hace de **proxy** hacia las APIs de
 Gemini y Claude, lo que evita los problemas de CORS de Claude y mantiene las
@@ -45,8 +47,9 @@ npm run dev               # http://localhost:3000
 Vercel sirve `index.html` como estático y `api/index.js` como Serverless
 Function; `vercel.json` reenvía todas las rutas `/api/*` a esa función.
 
-Comprobación rápida tras desplegar: `https://TU-APP.vercel.app/api/health`
-debe devolver `{"ok":true,"gemini":true,"claude":...}`.
+Comprobación rápida tras desplegar:
+`https://app-dictada-a-voz.vercel.app/api/health` debe devolver
+`{"ok":true,"gemini":true,"claude":...}`.
 
 ## Notas
 
