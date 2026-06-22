@@ -166,7 +166,7 @@ input[type=file]{display:none}
    dedo arrastre en vez de hacer scroll. */
 .pat-cat-group{margin-bottom:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg)}
 .pat-cat-group.drop-cat{box-shadow:inset 0 0 0 2px var(--green)}
-.pat-cat-head{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--green-l);border-bottom:1px solid var(--border)}
+.pat-cat-head{position:relative;display:flex;align-items:center;gap:7px;padding:7px 10px 34px;background:var(--green-l);border-bottom:1px solid var(--border)}
 /* Señal de destino válido durante el arrastre ⇄/categorías: encabezado azul. */
 .pat-cat-head.drop-head{background:#1976d2;border-color:#1976d2}
 .pat-cat-head.drop-head .pat-cat-name,.pat-cat-head.drop-head .pat-cat-grip{color:#fff}
@@ -174,6 +174,10 @@ input[type=file]{display:none}
 .pat-cat-add{flex-shrink:0;width:24px;height:24px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:1rem;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pat-cat-empty{font-size:.72rem;color:var(--muted);font-style:italic;padding:8px 10px;text-align:center}
 .pat-cat-grip{font-size:.95rem;color:var(--green);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;padding:2px 3px;flex-shrink:0}
+/* Candado por categoría: esquina inferior derecha del encabezado. */
+.pat-cat-lock{position:absolute;right:8px;bottom:5px;background:none;border:none;font-size:1rem;line-height:1;cursor:pointer;padding:2px;opacity:.9}
+/* Categoría bloqueada: atenúa los grips de arrastre de sus productos. */
+.pat-cat-group.locked .pat-grip-row,.pat-cat-group.locked .pat-grip-move{opacity:.35;cursor:not-allowed}
 /* Dos cajitas táctiles independientes (≥44px) para que el dedo nunca confunda
    ⠿ (reordenar dentro de la categoría) con ⇆ (mover a otra categoría). */
 .pat-grip-row,.pat-grip-move{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;font-size:1.3rem;line-height:1}
@@ -630,13 +634,30 @@ let pendingGuardar=false;
 let choferes=JSON.parse(localStorage.getItem('bon_ch')||'[]');
 let listas=JSON.parse(localStorage.getItem('bon_listas')||'[]');
 let patron=JSON.parse(localStorage.getItem('bon_pat')||'[]');
-let catalogo=JSON.parse(localStorage.getItem('bon_cat')||'null')||[
+// Catálogo de plantilla original (14 productos). Se conserva SOLO como referencia
+// para la purga única de abajo. Las instalaciones NUEVAS ya no lo siembran:
+// arrancan con catálogo vacío.
+const CATALOGO_SEED=[
   {c:'Paletas',n:'Paleta Coco'},{c:'Paletas',n:'Paleta Fresa'},{c:'Paletas',n:'Paleta Chocolate'},
   {c:'Paletas',n:'Paleta Vainilla'},{c:'Helados',n:'Helado Vainilla'},{c:'Helados',n:'Helado Chocolate'},
   {c:'Helados',n:'Helado Fresa'},{c:'Conos',n:'Cono Simple'},{c:'Conos',n:'Cono Doble'},
   {c:'Vasos',n:'Vaso Pequeño'},{c:'Vasos',n:'Vaso Grande'},{c:'Bombones',n:'Bombón Chocolate'},
   {c:'Sándwiches',n:'Sándwich Helado'},{c:'Otros',n:'Producto Especial'}
 ];
+// Instalaciones nuevas: catálogo VACÍO (ya no se siembran los 14 de ejemplo).
+let catalogo=JSON.parse(localStorage.getItem('bon_cat')||'null')||[];
+// Migración ÚNICA: quita de bon_cat solo los 14 productos de plantilla EXACTOS
+// (par categoría+nombre, con trim). Respeta TODO lo agregado por el usuario y no
+// toca bon_pat, bon_categorias ni bon_listas. La bandera evita que se repita y
+// que vuelva a borrar un nombre re-agregado a mano más adelante.
+if(!localStorage.getItem('bon_cat_seed_purgado')){
+  const claveSeed=p=>`${String(p.c||'').trim()} ${String(p.n||'').trim()}`;
+  const seedSet=new Set(CATALOGO_SEED.map(claveSeed));
+  const antes=catalogo.length;
+  catalogo=catalogo.filter(p=>!seedSet.has(claveSeed(p)));
+  if(catalogo.length!==antes)localStorage.setItem('bon_cat',JSON.stringify(catalogo));
+  localStorage.setItem('bon_cat_seed_purgado','1');
+}
 
 // Lista GESTIONABLE de categorías (fuente única para todos los desplegables).
 // Se siembra con las categorías por defecto ∪ las que ya usan los productos del
@@ -648,6 +669,16 @@ if(!Array.isArray(categorias)||!categorias.length){
   if(!categorias.includes('Otros'))categorias.push('Otros');
 }
 function saveCategorias(){localStorage.setItem('bon_categorias',JSON.stringify(categorias));}
+
+// Candado por categoría (Patrón): lista de nombres de categoría bloqueadas. Una
+// categoría bloqueada no deja arrastrar sus productos (⠿ reordenar ni ⇆ mover),
+// ni recibir productos de otras categorías. El "+", la "✕" y el reordenamiento
+// de la categoría entera siguen funcionando. Vive aparte en bon_cat_locks; no
+// toca Patrón, categorías ni historial.
+let catLocks=JSON.parse(localStorage.getItem('bon_cat_locks')||'[]');
+function saveLocks(){localStorage.setItem('bon_cat_locks',JSON.stringify(catLocks));}
+function estaBloqueada(cat){return catLocks.includes(cat);}
+function toggleLock(cat){if(estaBloqueada(cat))catLocks=catLocks.filter(c=>c!==cat);else catLocks.push(cat);saveLocks();renderPatron();}
 
 // ════ HELPERS FECHA ════
 const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -1853,11 +1884,13 @@ function renderPatron(){
   patron.forEach(p=>{const c=p.categoria||'Otros';if(!usadas.includes(c))usadas.push(c);});
   if(!usadas.length){cont.innerHTML='<div class="empty"><span>📝</span>No hay categorías. Crea una en Ajustes → Categorías.</div>';return;}
   usadas.forEach(cat=>{
-    const grupo=document.createElement('div');grupo.className='pat-cat-group';grupo.dataset.cat=cat;
+    const bloq=estaBloqueada(cat);
+    const grupo=document.createElement('div');grupo.className='pat-cat-group'+(bloq?' locked':'');grupo.dataset.cat=cat;
     const head=document.createElement('div');head.className='pat-cat-head';
-    head.innerHTML=`<span class="pat-cat-grip" title="Arrastrar para reordenar categorías">⠿</span><span class="pat-cat-name">${esc(cat)}</span><button class="pat-cat-add" title="Agregar producto a ${esc(cat)}">+</button>`;
+    head.innerHTML=`<span class="pat-cat-grip" title="Arrastrar para reordenar categorías">⠿</span><span class="pat-cat-name">${esc(cat)}</span><button class="pat-cat-add" title="Agregar producto a ${esc(cat)}">+</button><button class="pat-cat-lock" title="${bloq?'Categoría bloqueada — toca para permitir mover productos':'Categoría abierta — toca para bloquear el movimiento de productos'}">${bloq?'🔒':'🔓'}</button>`;
     head.querySelector('.pat-cat-grip').addEventListener('pointerdown',e=>arrancarArrastre(e,'group',null,cat));
     head.querySelector('.pat-cat-add').addEventListener('click',()=>abrirAddPatron(cat));
+    head.querySelector('.pat-cat-lock').addEventListener('click',()=>toggleLock(cat));
     grupo.appendChild(head);
     // Productos de la categoría, ordenados por su campo 'orden'.
     const items=patron.map((p,i)=>({p,i})).filter(o=>(o.p.categoria||'Otros')===cat).sort((a,b)=>(a.p.orden||0)-(b.p.orden||0));
@@ -1947,6 +1980,9 @@ function patronOrdenado(){
 let pDrag=null;
 function arrancarArrastre(e,tipo,idx,cat){
   if(e.pointerType==='mouse'&&e.button!==0)return;
+  // Candado: una categoría bloqueada no deja reordenar (⠿) ni mover (⇆) sus
+  // productos. Reordenar la categoría entera ('group') sí se permite.
+  if((tipo==='row'||tipo==='move')&&estaBloqueada(cat))return;
   e.preventDefault();e.stopPropagation();
   const h=e.currentTarget;
   // Captura el puntero en la manija: mantiene el stream aunque el dedo salga del
@@ -1981,7 +2017,9 @@ function evaluarObjetivo(x,y){
     // rect contiene la Y del dedo; si cae en un hueco, el más cercano. NO usa
     // hit-testing -> inmune a overlays fijos (barra de nav) y a la captura del
     // puntero, que era lo que rompía el gesto ⇄.
-    const grupos=[...document.querySelectorAll('.pat-cat-group')];
+    // Candado: en 'move', una categoría bloqueada NO es destino válido (no se le
+    // pueden meter productos). En 'group' se ignora el candado (reordena igual).
+    const grupos=[...document.querySelectorAll('.pat-cat-group')].filter(gr=>!(pDrag.tipo==='move'&&estaBloqueada(gr.dataset.cat)));
     let g=null,mejorDist=Infinity;
     for(const gr of grupos){
       const b=gr.getBoundingClientRect();
@@ -2048,7 +2086,7 @@ function soltarArrastre(){
   const dr=cerrarArrastre();
   if(!dr||!dr.moved)return;
   if(dr.tipo==='row'){reordenarDentro(dr.cat,dr.idx,dr.objetivo);savePat();renderPatron();}
-  else if(dr.tipo==='move'){if(dr.objetivoCat){moverACategoriaEnPos(dr.idx,dr.objetivoCat,dr.objetivoPos);savePat();renderPatron();}}
+  else if(dr.tipo==='move'){if(dr.objetivoCat&&!estaBloqueada(dr.objetivoCat)){moverACategoriaEnPos(dr.idx,dr.objetivoCat,dr.objetivoPos);savePat();renderPatron();}}
   else if(dr.tipo==='group'){if(dr.objetivoCat&&dr.objetivoCat!==dr.cat){moverCategoria(dr.cat,dr.objetivoCat,dr.antes);renderPatron();}}
 }
 // Cancelación del puntero: cerramos sin aplicar cambios (el gesto se abortó).
@@ -2167,6 +2205,7 @@ window.delCat=function(i){
   const u=usosCategoria(c);
   if(u.total>0){alert(`No se puede borrar "${c}": la usan ${u.enCat} producto(s) del catálogo y ${u.enPat} del patrón. Reasígnalos a otra categoría primero.`);return;}
   if(!confirm(`¿Borrar la categoría "${c}"?`))return;
+  if(catLocks.includes(c)){catLocks=catLocks.filter(x=>x!==c);saveLocks();}
   categorias.splice(i,1);saveCategorias();refrescarCategorias();
 };
 window.renomCat=function(i){
@@ -2178,6 +2217,7 @@ window.renomCat=function(i){
   // Propaga a catálogo y patrón; el historial NO se toca (registro fiel).
   catalogo.forEach(p=>{if(p.c===viejo)p.c=nuevo;});localStorage.setItem('bon_cat',JSON.stringify(catalogo));
   patron.forEach(p=>{if(p.categoria===viejo)p.categoria=nuevo;});savePat();
+  catLocks=catLocks.map(c=>c===viejo?nuevo:c);saveLocks();
   refrescarCategorias();renderCatalogo();
 };
 document.getElementById('btn-aj-add-cat').addEventListener('click',()=>{
