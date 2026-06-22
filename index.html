@@ -128,6 +128,25 @@ input[type=file]{display:none}
 /* Mejora I — chofer "lleno" (tiene lista de hoy): sombra/realce verde + clicable. */
 .ch-card.lleno{cursor:pointer;border-color:var(--green);box-shadow:0 4px 14px rgba(46,125,50,.30),inset 0 0 0 9999px rgba(46,125,50,.05)}
 .ch-card.lleno:active{transform:scale(.98)}
+/* Mejora H — botón Novedades (naranja/🆕, distinto del 📝 ámbar) y fila con novedad. */
+.nov-btn{flex-shrink:0;background:#eee;color:#9e9e9e;border:none;border-radius:8px;width:30px;height:30px;font-size:.95rem;line-height:1;cursor:pointer;padding:0}
+.nov-btn.on{background:#ff6d00;color:#fff;box-shadow:0 0 0 2px rgba(255,109,0,.30)}
+.irow.con-novedad,.edit-row.con-novedad{background:rgba(255,109,0,.12);box-shadow:inset 3px 0 0 #ff6d00}
+.nov-blk{border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:7px}
+.nov-blk .nov-toggle{width:100%;text-align:left;background:var(--bg);border:none;border-radius:8px;padding:8px 10px;font-size:.84rem;font-weight:700;color:var(--text);cursor:pointer}
+.nov-blk.on .nov-toggle{background:#ff6d00;color:#fff}
+.nov-blk .nov-campos{display:flex;gap:6px;margin-top:7px}
+.nov-blk .nov-campos .nov-cant{width:92px}
+.nov-blk .nov-campos .nov-nota{flex:1}
+/* Mejora H — tablas de consulta (Novedades por chofer / Reporte) */
+.data-tabla{width:100%;border-collapse:collapse;font-size:.72rem}
+.data-tabla th,.data-tabla td{border:1px solid var(--border);padding:4px 6px;text-align:left;vertical-align:top}
+.data-tabla th{background:var(--bg);font-weight:700;position:sticky;top:0}
+/* Mejora H — filas del reporte del día */
+.rep-row{display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;font-size:.78rem}
+.rep-row .rep-tipo{font-weight:700;color:var(--red);flex-shrink:0;min-width:80px;font-size:.7rem}
+.rep-row .rep-txt{flex:1}
+.rep-row .rep-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem}
 .ch-add{background:var(--bg);border-radius:14px;border:2px dashed var(--border);padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;min-height:110px}
 .ch-add span{font-size:1.6rem}
 .ch-add p{font-size:.71rem;color:var(--muted)}
@@ -386,6 +405,15 @@ input[type=file]{display:none}
     <div class="desp-titulo" style="margin-top:8px;color:var(--green)">✅ Ya despachadas hoy</div>
     <div class="burbujas-wrap" id="burbs-escuchadas"></div>
   </div>
+  <!-- Mejora H, Parte B: Reporte de Despacho del día -->
+  <div class="desp-section" style="margin-top:10px">
+    <div class="desp-titulo">📒 Reporte del día</div>
+    <div class="g2" style="margin:6px 0">
+      <button class="btn bgreen bfull" id="btn-rep-add"><span class="bi">+</span>Agregar al reporte</button>
+      <button class="btn bout bfull" id="btn-rep-tabla"><span class="bi">📅</span>Ver por fecha</button>
+    </div>
+    <div id="rep-dia-list"></div>
+  </div>
 </div>
 
 <!-- ══ CHOFERES ══ -->
@@ -403,6 +431,7 @@ input[type=file]{display:none}
   <div class="card">
     <div class="card-hd">Historial de listas</div>
     <div class="card-bd" style="padding:9px 10px">
+      <button class="btn bout bfull" id="btn-nov-tabla" style="margin-bottom:9px"><span class="bi">🆕</span>Novedades por chofer</button>
       <select id="filtro-ch" class="inp sel" style="margin-bottom:9px"><option value="">Todos los choferes</option></select>
       <div id="hist-list"></div>
     </div>
@@ -536,6 +565,44 @@ input[type=file]{display:none}
   <p style="font-size:.74rem;color:var(--muted);margin:0 0 6px">Si el chofer ya tiene una lista de hoy, se pedirá la contraseña de administrador.</p>
   <div class="fld"><label>Chofer</label><select id="asignar-ch-sel" class="inp sel"></select></div>
   <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-asignar-ch')">Cancelar</button><button class="btn bblue" id="btn-asignar-ch-ok">Asignar</button></div>
+</div></div>
+
+<!-- MODAL: NOVEDADES POR PRODUCTO (Mejora H, Parte A) -->
+<div class="mov" id="m-novedad"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">🆕 Novedades del producto</div>
+  <div id="nov-prod" style="font-size:.86rem;font-weight:700;color:var(--red);margin-bottom:4px"></div>
+  <p style="font-size:.72rem;color:var(--muted);margin:0 0 8px">Activa uno o varios tipos. En "Agregado" la nota es obligatoria.</p>
+  <div id="nov-tipos"></div>
+  <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-novedad')">Cancelar</button><button class="btn bgreen" id="btn-nov-save">Guardar</button></div>
+</div></div>
+
+<!-- MODAL: TABLA NOVEDADES POR CHOFER (Mejora H, Parte A) -->
+<div class="mov" id="m-nov-tabla"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">🆕 Novedades por chofer</div>
+  <div class="g2" style="margin-bottom:7px">
+    <select id="novt-fecha" class="inp sel"></select>
+    <select id="novt-chofer" class="inp sel"></select>
+  </div>
+  <div id="novt-body" style="max-height:55vh;overflow:auto"></div>
+  <button class="btn bout bfull" style="margin-top:8px" onclick="cerrarMov('m-nov-tabla')">Cerrar</button>
+</div></div>
+
+<!-- MODAL: AGREGAR AL REPORTE DEL DÍA (Mejora H, Parte B) -->
+<div class="mov" id="m-reporte-add"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">📒 Agregar al reporte del día</div>
+  <div class="fld"><label>Tipo</label><select id="rep-tipo" class="inp sel"><option>Sobrante</option><option>Dañados</option><option>Pendientes</option><option>Agotado</option><option>Notas</option></select></div>
+  <div class="fld"><label>Producto (opcional)</label><input id="rep-prod" class="inp" placeholder="Producto"></div>
+  <div class="fld"><label>Cantidad (opcional)</label><input id="rep-cant" class="inp" type="number" inputmode="numeric" placeholder="Cantidad"></div>
+  <div class="fld"><label>Nota (opcional)</label><textarea id="rep-nota" class="inp" rows="2" placeholder="Nota" style="resize:vertical"></textarea></div>
+  <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-reporte-add')">Cancelar</button><button class="btn bgreen" id="btn-rep-save">Guardar</button></div>
+</div></div>
+
+<!-- MODAL: TABLA REPORTE DE DESPACHO (Mejora H, Parte B) -->
+<div class="mov" id="m-reporte-tabla"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">📒 Reporte de Despacho</div>
+  <select id="rept-fecha" class="inp sel" style="margin-bottom:7px"></select>
+  <div id="rept-body" style="max-height:55vh;overflow:auto"></div>
+  <button class="btn bout bfull" style="margin-top:8px" onclick="cerrarMov('m-reporte-tabla')">Cerrar</button>
 </div></div>
 
 <!-- MODAL: DICTADO -->
@@ -738,6 +805,19 @@ function textoListaParaCompartir(lista){
   }
   return t.trim();
 }
+// ─── Mejora H — Novedades (helpers comunes) ───
+// Identidad estable por producto: permite escribir la novedad de vuelta en el
+// item real de listas[] desde cualquier superficie (dictado usa copia reordenada).
+function uid(){return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function asegurarUids(lista){
+  if(!lista||!Array.isArray(lista.items))return;
+  let chg=false;lista.items.forEach(it=>{if(!it._uid){it._uid=uid();chg=true;}});
+  if(chg)saveListas();
+}
+function tieneNovedades(it){return !!(it&&it.novedades&&it.novedades.length);}
+// Parte B — Reporte de Despacho del día (almacenamiento independiente).
+let reporte=JSON.parse(localStorage.getItem('bon_reporte')||'[]');
+function saveReporte(){localStorage.setItem('bon_reporte',JSON.stringify(reporte));}
 function iniciales(n){return n.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';}
 function strColor(s){const c=['#d32f2f','#1565c0','#2e7d32','#6a1b9a','#e65100','#00695c','#4e342e','#37474f'];let h=0;for(let i=0;i<s.length;i++)h=s.charCodeAt(i)+((h<<5)-h);return c[Math.abs(h)%c.length];}
 function setBadge(t,c){const b=document.getElementById('badge');b.textContent=t;b.className=c||'';}
@@ -1258,7 +1338,7 @@ function guardarListaFinal(chId,notas){
     // el campo transitorio de lectura (_catLect, categoría heredada del Patrón).
     // El nombre, la cantidad y la categoría capturada se guardan tal cual: el
     // registro queda FIEL a lo capturado; el orden se recalcula al dictar (Caso 5).
-    items:allItems.map(({conf_cantidad,conf_precio,conf_total,revisado,_catLect,...rest})=>rest),
+    items:allItems.map(({conf_cantidad,conf_precio,conf_total,revisado,_catLect,...rest})=>({...rest,_uid:rest._uid||uid()})),
     escuchada:false
   });
   if(listas.length>500)listas=listas.slice(0,500);
@@ -1338,12 +1418,14 @@ function renderDespacho(){
       eCont.appendChild(b);
     });
   }
+  renderReporteDia();   // Mejora H, Parte B
 }
 
 // ════ PANEL LISTA (al tocar burbuja) ════
 function abrirPanelLista(listaId){
   activoListaId=listaId;
   const lista=listas.find(l=>l.id==listaId);if(!lista)return;
+  asegurarUids(lista);
   const ch=lista.chofer;
   const avaEl=document.getElementById('mlp-ava');
   avaEl.style.background=ch?strColor(ch.nombre):'#757575';
@@ -1361,8 +1443,8 @@ function abrirPanelLista(listaId){
 function renderPanelEditList(items,listaId){
   const cont=document.getElementById('mlp-edit-list');cont.innerHTML='';
   items.forEach((it,i)=>{
-    const d=document.createElement('div');d.className='edit-row';d.draggable=true;d.dataset.i=i;
-    d.innerHTML=`<span class="drag-ico">⠿</span><span class="edit-cat">${it.categoria}</span><span class="edit-nom">${it.nombre}</span><span class="edit-qty">${it.cantidad}</span><button class="edit-del" onclick="delPanelItem(${i},'${listaId}')">✕</button>`;
+    const d=document.createElement('div');d.className='edit-row'+(tieneNovedades(it)?' con-novedad':'');d.draggable=true;d.dataset.i=i;
+    d.innerHTML=`<span class="drag-ico">⠿</span><span class="edit-cat">${it.categoria}</span><span class="edit-nom">${it.nombre}</span><span class="edit-qty">${it.cantidad}</span><button class="nov-btn${tieneNovedades(it)?' on':''}" onclick="abrirNovedad('${it._uid}')" title="Novedades">🆕</button><button class="edit-del" onclick="delPanelItem(${i},'${listaId}')">✕</button>`;
     d.addEventListener('dragstart',()=>{dragSrc=i;d.classList.add('dragging');});
     d.addEventListener('dragend',()=>d.classList.remove('dragging'));
     d.addEventListener('dragover',e=>e.preventDefault());
@@ -1461,8 +1543,124 @@ document.getElementById('btn-mlp-share').addEventListener('click',()=>{
   else alert(texto);
 });
 
+// ─── Mejora H — Novedades por producto (Parte A) ───
+let novCtx=null;
+window.abrirNovedad=function(uidItem){
+  const lista=listas.find(l=>l.id==activoListaId);if(!lista)return;
+  const it=lista.items.find(x=>x._uid===uidItem);if(!it)return;
+  novCtx={listaId:activoListaId,uid:uidItem};
+  document.getElementById('nov-prod').textContent=it.nombre;
+  const cont=document.getElementById('nov-tipos');cont.innerHTML='';
+  const actuales=it.novedades||[];
+  ['Faltante','Retirado','Agregado'].forEach(tp=>{
+    const ex=actuales.find(n=>n.tipo===tp);
+    const blk=document.createElement('div');blk.className='nov-blk'+(ex?' on':'');blk.dataset.tipo=tp;
+    blk.innerHTML=`<button type="button" class="nov-toggle">${tp}</button><div class="nov-campos"${ex?'':' style="display:none"'}><input class="inp nov-cant" type="number" inputmode="numeric" placeholder="Cantidad"><input class="inp nov-nota" placeholder="${tp==='Agregado'?'Nota (obligatoria)':'Nota (opcional)'}"></div>`;
+    if(ex){blk.querySelector('.nov-cant').value=(ex.cantidad!=null?ex.cantidad:'');blk.querySelector('.nov-nota').value=ex.nota||'';}
+    blk.querySelector('.nov-toggle').addEventListener('click',()=>{blk.classList.toggle('on');blk.querySelector('.nov-campos').style.display=blk.classList.contains('on')?'':'none';});
+    cont.appendChild(blk);
+  });
+  abrirMov('m-novedad');
+};
+document.getElementById('btn-nov-save').addEventListener('click',()=>{
+  if(!novCtx)return;
+  const novs=[];
+  for(const blk of document.querySelectorAll('#nov-tipos .nov-blk')){
+    if(!blk.classList.contains('on'))continue;
+    const tipo=blk.dataset.tipo;
+    const cantidad=blk.querySelector('.nov-cant').value.trim();
+    const nota=blk.querySelector('.nov-nota').value.trim();
+    if(tipo==='Agregado'&&!nota){alert('La nota es obligatoria para "Agregado".');return;}
+    novs.push({tipo,cantidad,nota});
+  }
+  const lista=listas.find(l=>l.id==novCtx.listaId);if(!lista){cerrarMov('m-novedad');return;}
+  const it=lista.items.find(x=>x._uid===novCtx.uid);if(!it){cerrarMov('m-novedad');return;}
+  if(novs.length)it.novedades=novs;else delete it.novedades;
+  // Reflejar también en la copia del dictado (allItems) si está presente.
+  const cp=(allItems||[]).find(x=>x._uid===novCtx.uid);if(cp){if(novs.length)cp.novedades=novs;else delete cp.novedades;}
+  saveListas();
+  cerrarMov('m-novedad');
+  if(document.getElementById('m-dictado').classList.contains('open'))renderItemList(allItems);
+  if(document.getElementById('m-lista-panel').classList.contains('open'))renderPanelEditList(lista.items,lista.id);
+});
+
+function escHtml(s){return String(s==null?'':s).replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));}
+
+// ─── Mejora H — Tabla "Novedades por Chofer" (en Historial) ───
+function recolectarNovedades(){
+  const rows=[];
+  listas.forEach(l=>{(l.items||[]).forEach(it=>{(it.novedades||[]).forEach(n=>{
+    rows.push({fechaStr:l.fechaStr,chofer:l.chofer?l.chofer.nombre:'Sin chofer',chId:l.chofer?l.chofer.id:'',producto:it.nombre,tipo:n.tipo,cantidad:n.cantidad,nota:n.nota});
+  });});});
+  return rows;
+}
+function abrirNovTabla(){
+  const rows=recolectarNovedades();
+  const fechas=[...new Set(rows.map(r=>r.fechaStr))];
+  document.getElementById('novt-fecha').innerHTML='<option value="">Todas las fechas</option>'+fechas.map(f=>`<option>${escHtml(f)}</option>`).join('');
+  document.getElementById('novt-chofer').innerHTML='<option value="">Todos los choferes</option>'+choferesOrdenados().map(c=>`<option value="${c.id}">${escHtml(c.nombre)}</option>`).join('');
+  renderNovTabla();abrirMov('m-nov-tabla');
+}
+function renderNovTabla(){
+  const f=document.getElementById('novt-fecha').value,ch=document.getElementById('novt-chofer').value;
+  let rows=recolectarNovedades();
+  if(f)rows=rows.filter(r=>r.fechaStr===f);
+  if(ch)rows=rows.filter(r=>String(r.chId)===String(ch));
+  const cont=document.getElementById('novt-body');
+  if(!rows.length){cont.innerHTML='<div class="empty"><span>🆕</span>Sin novedades</div>';return;}
+  cont.innerHTML='<table class="data-tabla"><thead><tr><th>Fecha</th><th>Chofer</th><th>Producto</th><th>Tipo</th><th>Cant.</th><th>Nota</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${escHtml(r.fechaStr)}</td><td>${escHtml(r.chofer)}</td><td>${escHtml(r.producto)}</td><td>${escHtml(r.tipo)}</td><td>${escHtml(r.cantidad)}</td><td>${escHtml(r.nota)}</td></tr>`).join('')+'</tbody></table>';
+}
+document.getElementById('btn-nov-tabla').addEventListener('click',abrirNovTabla);
+document.getElementById('novt-fecha').addEventListener('change',renderNovTabla);
+document.getElementById('novt-chofer').addEventListener('change',renderNovTabla);
+
+// ─── Mejora H — Parte B: Reporte de Despacho del día (en Despacho) ───
+function renderReporteDia(){
+  const cont=document.getElementById('rep-dia-list');if(!cont)return;
+  const hoy=hoyStr();
+  const rows=reporte.filter(r=>r.fechaStr===hoy);
+  if(!rows.length){cont.innerHTML='<div class="empty" style="opacity:.7"><span>📒</span>Sin entradas hoy</div>';return;}
+  cont.innerHTML=rows.map(r=>{
+    const detalle=[r.producto,r.cantidad].filter(Boolean).map(escHtml).join(' · ');
+    return `<div class="rep-row"><span class="rep-tipo">${escHtml(r.tipo)}</span><span class="rep-txt">${detalle}${r.nota?(detalle?' — ':'')+escHtml(r.nota):''}</span><button class="rep-del" onclick="delReporte('${r.id}')">✕</button></div>`;
+  }).join('');
+}
+window.delReporte=function(id){reporte=reporte.filter(r=>String(r.id)!==String(id));saveReporte();renderReporteDia();};
+document.getElementById('btn-rep-add').addEventListener('click',()=>{
+  document.getElementById('rep-tipo').value='Sobrante';
+  document.getElementById('rep-prod').value='';document.getElementById('rep-cant').value='';document.getElementById('rep-nota').value='';
+  abrirMov('m-reporte-add');
+});
+document.getElementById('btn-rep-save').addEventListener('click',()=>{
+  const tipo=document.getElementById('rep-tipo').value;
+  const producto=document.getElementById('rep-prod').value.trim();
+  const cantidad=document.getElementById('rep-cant').value.trim();
+  const nota=document.getElementById('rep-nota').value.trim();
+  if(!producto&&!cantidad&&!nota){alert('Escribe al menos un dato (producto, cantidad o nota).');return;}
+  reporte.unshift({id:uid(),fechaStr:hoyStr(),fecha:new Date().toLocaleString('es-DO'),tipo,producto,cantidad,nota});
+  saveReporte();cerrarMov('m-reporte-add');renderReporteDia();
+});
+function abrirReporteTabla(){
+  const fechas=[...new Set(reporte.map(r=>r.fechaStr))];
+  document.getElementById('rept-fecha').innerHTML='<option value="">Todas las fechas</option>'+fechas.map(f=>`<option>${escHtml(f)}</option>`).join('');
+  renderReporteTabla();abrirMov('m-reporte-tabla');
+}
+function renderReporteTabla(){
+  const f=document.getElementById('rept-fecha').value;
+  let rows=reporte.slice();
+  if(f)rows=rows.filter(r=>r.fechaStr===f);
+  const cont=document.getElementById('rept-body');
+  if(!rows.length){cont.innerHTML='<div class="empty"><span>📒</span>Sin entradas</div>';return;}
+  cont.innerHTML='<table class="data-tabla"><thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Cant.</th><th>Nota</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${escHtml(r.fechaStr)}</td><td>${escHtml(r.tipo)}</td><td>${escHtml(r.producto)}</td><td>${escHtml(r.cantidad)}</td><td>${escHtml(r.nota)}</td></tr>`).join('')+'</tbody></table>';
+}
+document.getElementById('btn-rep-tabla').addEventListener('click',abrirReporteTabla);
+document.getElementById('rept-fecha').addEventListener('change',renderReporteTabla);
+
 document.getElementById('btn-mlp-dictar').addEventListener('click',()=>{
   const l=listas.find(x=>x.id==activoListaId);if(!l)return;
+  asegurarUids(l);
   allItems=[...l.items];
   cerrarMov('m-lista-panel');
   renderItemList(allItems);
@@ -1500,8 +1698,8 @@ function renderItemList(items){
   items.forEach((p,idx)=>{
     const c=catLect(p);
     if(c!==lastCat){const lbl=document.createElement('div');lbl.className='cat-lbl';lbl.textContent=c;list.appendChild(lbl);lastCat=c;}
-    const r=document.createElement('div');r.className='irow';r.dataset.index=idx;
-    r.innerHTML=`<span class="inum">${idx+1}</span><div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`;
+    const r=document.createElement('div');r.className='irow'+(tieneNovedades(p)?' con-novedad':'');r.dataset.index=idx;
+    r.innerHTML=`<span class="inum">${idx+1}</span><div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`+(p._uid?`<button class="nov-btn${tieneNovedades(p)?' on':''}" onclick="event.stopPropagation();abrirNovedad('${p._uid}')" title="Novedades">🆕</button>`:'');
     list.appendChild(r);
   });
 }
@@ -1980,6 +2178,7 @@ window.verListaModal=function(id){
 
 window.releerLista=function(id){
   const l=listas.find(x=>x.id==id);if(!l)return;
+  asegurarUids(l);
   activoListaId=id;allItems=[...l.items];
   cerrarMov('m-ver-lista');
   renderItemList(allItems);
