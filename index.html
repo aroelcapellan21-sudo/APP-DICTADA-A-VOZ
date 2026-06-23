@@ -123,8 +123,8 @@ input[type=file]{display:none}
 .ch-edit{position:absolute;top:5px;right:7px;background:none;border:none;font-size:.82rem;cursor:pointer;color:var(--muted);padding:2px}
 /* Mejora I — franja de NOTA del despacho en la burbuja (ámbar 📝). Distinta del
    futuro botón Novedades (que será de color llamativo + otro ícono). */
-.bnota{position:absolute;left:-2px;top:6px;z-index:2;width:22px;height:22px;border-radius:7px;border:none;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;line-height:1;padding:0;background:#fff;color:#bbb;box-shadow:0 0 0 1px var(--border);opacity:.55}
-.bnota.has{background:var(--yellow);color:#5d4037;box-shadow:0 0 0 2px rgba(249,168,37,.45);opacity:1}
+.bnota{position:absolute;left:-2px;top:6px;z-index:2;width:22px;height:22px;border-radius:7px;border:none;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;line-height:1;padding:0;background:#fffbe9;color:#f9a825;box-shadow:0 0 0 2px var(--yellow);opacity:1}
+.bnota.has{background:var(--yellow);color:#5d4037;box-shadow:0 0 0 2px rgba(249,168,37,.55),0 1px 4px rgba(249,168,37,.5);opacity:1}
 /* Mejora I — chofer "lleno" (tiene lista de hoy): sombra/realce verde + clicable. */
 .ch-card.lleno{cursor:pointer;border-color:var(--green);box-shadow:0 4px 14px rgba(46,125,50,.30),inset 0 0 0 9999px rgba(46,125,50,.05)}
 .ch-card.lleno:active{transform:scale(.98)}
@@ -250,6 +250,11 @@ input[type=file]{display:none}
 #fab-dictado{display:none;position:fixed;right:16px;bottom:74px;z-index:150;width:60px;height:60px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:0;animation:fabpulse 2s infinite}
 @keyframes fabpulse{0%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,.55)}70%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 13px rgba(211,47,47,0)}100%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,0)}}
 #btn-min-dictado{position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.25rem;line-height:1;cursor:pointer;color:var(--muted);padding:4px;z-index:3}
+/* Mejora I — botón 📝 de nota flotante dentro del dictado (ámbar, mismo criterio que .bnota). */
+#btn-nota-dictado{position:absolute;top:7px;left:10px;z-index:3;width:34px;height:34px;border-radius:9px;border:none;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;padding:0;cursor:pointer;background:#fffbe9;color:#f9a825;box-shadow:0 0 0 2px var(--yellow)}
+#btn-nota-dictado.has{background:var(--yellow);color:#5d4037;box-shadow:0 0 0 2px rgba(249,168,37,.55),0 1px 5px rgba(249,168,37,.55)}
+/* El modal de nota se abre por encima del dictado para poder usarlo sin salir. */
+#m-nota-chofer{z-index:210}
 .msh{background:var(--white);border-radius:20px 20px 0 0;width:100%;max-height:92dvh;overflow-y:auto;padding:16px 14px 32px;display:flex;flex-direction:column;gap:9px;position:relative}
 .mhdl{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 2px}
 .mtit{font-size:.94rem;font-weight:800;color:var(--red);text-align:center}
@@ -637,6 +642,7 @@ input[type=file]{display:none}
 <div class="mov" id="m-dictado">
   <div class="msh">
     <button id="btn-min-dictado" title="Minimizar (el dictado sigue)">▽</button>
+    <button id="btn-nota-dictado" title="Nota del despacho">📝</button>
     <div class="mhdl"></div>
     <div id="ch-banner" style="display:none;align-items:center;gap:10px;background:var(--green-l);border:1.5px solid var(--green);border-radius:12px;padding:9px 13px">
       <div id="cba" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:white;flex-shrink:0;overflow:hidden"></div>
@@ -1544,6 +1550,8 @@ document.getElementById('btn-nota-ch-save').addEventListener('click',()=>{
   saveListas();cerrarMov('m-nota-chofer');renderDespacho();
   // Si el panel de esa lista está abierto, refresca la nota visible.
   if(activoListaId==notaListaId)document.getElementById('mlp-notas').textContent=l.notas?'📝 '+l.notas:'';
+  // Si el dictado de esa lista está abierto, refresca el estado del botón flotante.
+  if(activoListaId==notaListaId)syncNotaDictado(l);
 });
 
 function abrirAsignarChofer(){
@@ -1740,8 +1748,18 @@ document.getElementById('btn-mlp-dictar').addEventListener('click',()=>{
   }else banner.style.display='none';
   document.getElementById('done-sec').style.display='none';
   document.getElementById('results-sec').style.display='flex';
+  syncNotaDictado(l);
   abrirMov('m-dictado');
   setTimeout(()=>iniciarDictado(activoListaId),200);
+});
+// Mejora I — botón 📝 de nota dentro del dictado (no afecta dictado ni auto-avance).
+function syncNotaDictado(l){
+  const b=document.getElementById('btn-nota-dictado');if(!b)return;
+  b.classList.toggle('has',!!(l&&l.notas));
+}
+document.getElementById('btn-nota-dictado').addEventListener('click',e=>{
+  e.stopPropagation();
+  if(activoListaId!=null)abrirNotaChofer(activoListaId);
 });
 
 document.getElementById('btn-cerrar-dictado').addEventListener('click',()=>{
@@ -2283,6 +2301,7 @@ window.releerLista=function(id){
   }else document.getElementById('ch-banner').style.display='none';
   document.getElementById('done-sec').style.display='none';
   document.getElementById('results-sec').style.display='flex';
+  syncNotaDictado(l);
   abrirMov('m-dictado');
   setTimeout(()=>iniciarDictado(id),200);
 };
