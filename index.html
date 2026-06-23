@@ -89,6 +89,8 @@ input[type=file]{display:none}
 .ped-l1{display:flex;align-items:center;gap:6px}
 .ped-l2{display:flex;align-items:center;gap:8px;margin-top:6px;padding-left:22px;flex-wrap:wrap}
 .ped-st{font-size:.9rem;flex-shrink:0;width:18px;text-align:center}
+/* Mejora visual 2 — ● producto verificado en el Patrón (coincide + pronunciación). */
+.ped-pat{color:var(--green);font-size:.6rem;flex-shrink:0;line-height:1}
 .ped-cat-sel{flex-shrink:0;max-width:92px;border:1px solid var(--border);outline:none;border-radius:6px;padding:3px 4px;font-size:.66rem;color:var(--green);font-weight:700;background:var(--white);font-family:inherit}
 /* Detalle plegable de productos por categoría (gestión de Categorías). */
 .cat-det{padding:4px 4px 6px 10px;margin:0 0 4px;border-left:2px solid var(--border)}
@@ -959,6 +961,12 @@ function categoriaDesdePatron(nombre){
   const p=patron.find(x=>normNombre(x.nombre)===n);
   return p?(p.categoria||'Otros'):'Otros';
 }
+// ¿El producto coincide con un producto del Patrón (categoría definida)? Mismo
+// macheo normalizado que categoriaDesdePatron(). Solo para indicadores visuales.
+function enPatron(nombre){
+  const n=normNombre(nombre);if(!n)return false;
+  return patron.some(x=>normNombre(x.nombre)===n);
+}
 // Devuelve una COPIA de 'items' en el orden de lectura del Patrón VIGENTE:
 // recorre patronOrdenado() (categoría, orden) y empareja por nombre normalizado;
 // los emparejados heredan la categoría del Patrón (_catLect) e incluyen duplicados
@@ -1305,6 +1313,11 @@ function aplicarEstadoFila(d,it){
   const ok=validarItem(it);
   d.classList.toggle('anomalia',!ok);
   const st=d.querySelector('.ped-st');if(st)st.textContent=ok?'✅':'';
+  // Mejora visual 2: punto verde si el producto está verificado en el Patrón
+  // (coincide Y tiene pronunciación). Excluyente con el 🛑 del dictado. Se
+  // recalcula al editar el nombre. Solo presentación, no afecta el guardado.
+  const pat=d.querySelector('.ped-pat');
+  if(pat){const ver=enPatron(it.nombre)&&!faltaVozPatron(it);pat.textContent=ver?'●':'';pat.title=ver?'Verificado en el Patrón (coincide y tiene pronunciación)':'';}
 }
 function renderEditAntes(){
   const cont=document.getElementById('edit-antes-list');cont.innerHTML='';
@@ -1321,6 +1334,7 @@ function renderEditAntes(){
       `<div class="ped-l1"><span class="ped-drag">⠿</span><span class="ped-st"></span>`+
       `<select class="ped-cat-sel" data-f="categoria">${opts.map(c=>`<option${c===it.categoria?' selected':''}>${esc(c)}</option>`).join('')}</select>`+
       `<input class="ped-nom-in" data-f="nombre" value="${esc(it.nombre)}" autocomplete="off" list="dl-prod">`+
+      `<span class="ped-pat"></span>`+
       (esDup?`<span title="Nombre repetido" style="color:#d32f2f;flex-shrink:0">⚠️</span>`:'')+
       `<button class="ped-del" onclick="delEditAntes(${i})">✕</button></div>`+
       `<div class="ped-l2">`+
@@ -2344,7 +2358,10 @@ window.verListaModal=function(id){
   let html=`<div style="margin-bottom:9px"><div style="font-size:.7rem;color:var(--muted)">${l.fecha}</div><div style="font-size:.96rem;font-weight:800;color:var(--red)">${l.nombre}</div>${l.chofer?`<div style="font-size:.76rem;color:var(--muted)">${l.chofer.nombre} · ${l.chofer.ficha}</div>`:''}</div>`;
   if(l.notas)html+=`<div style="font-size:.78rem;color:var(--muted);font-style:italic;background:var(--yellow-l);padding:7px 10px;border-radius:8px;margin-bottom:8px">📝 ${l.notas}</div>`;
   for(const[cat,prods] of Object.entries(g)){html+=`<div class="ver-cat"><span class="chip chip-cat">${escHtml(cat)}</span><div style="margin-top:5px">`+prods.map(p=>{
-    let fila=`<div class="ver-prod"><span>${escHtml(p.nombre)}</span><span class="vp-q">${escHtml(p.cantidad)}</span></div>`;
+    // Mejora visual 1: ✓ si el producto tiene novedades correctamente asociadas
+    // (coincide con el Patrón, o alguna novedad nombró un producto del diccionario).
+    const asoc=p.novedades&&p.novedades.length&&(enPatron(p.nombre)||p.novedades.some(n=>n.notaNorm));
+    let fila=`<div class="ver-prod"><span>${asoc?'<span class="prod-ok" title="Novedad asociada a un producto reconocido del Patrón">✓</span>':''}${escHtml(p.nombre)}</span><span class="vp-q">${escHtml(p.cantidad)}</span></div>`;
     if(p.novedades&&p.novedades.length)fila+=`<div class="ver-nov">`+p.novedades.map(n=>`🆕 ${escHtml(n.tipo)}${n.cantidad?(' · '+escHtml(n.cantidad)):''}${n.nota?(' — '+escHtml(n.nota)):''}`).join('<br>')+`</div>`;
     return fila;
   }).join('')+`</div></div>`;}
