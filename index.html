@@ -619,8 +619,8 @@ input[type=file]{display:none}
 <div class="mov" id="m-reporte-add"><div class="msh">
   <div class="mhdl"></div><div class="mtit">📒 Agregar al reporte del día</div>
   <div class="fld"><label>Tipo</label><select id="rep-tipo" class="inp sel"><option>Sobrante</option><option>Dañados</option><option>Pendientes</option><option>Agotado</option><option>Notas</option></select></div>
-  <div class="fld"><label>Producto (opcional)</label><input id="rep-prod" class="inp" placeholder="Producto"></div>
-  <div class="fld"><label>Cantidad (opcional)</label><input id="rep-cant" class="inp" type="number" inputmode="numeric" placeholder="Cantidad"></div>
+  <div class="fld" id="fld-rep-prod"><label>Producto (opcional)</label><input id="rep-prod" class="inp" placeholder="Producto"></div>
+  <div class="fld" id="fld-rep-cant"><label>Cantidad (opcional)</label><input id="rep-cant" class="inp" type="number" inputmode="numeric" placeholder="Cantidad"></div>
   <div class="fld"><label>Nota (opcional)</label><textarea id="rep-nota" class="inp" rows="2" placeholder="Nota" style="resize:vertical"></textarea></div>
   <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-reporte-add')">Cancelar</button><button class="btn bgreen" id="btn-rep-save">Guardar</button></div>
 </div></div>
@@ -1670,9 +1670,17 @@ function renderReporteDia(){
   }).join('');
 }
 window.delReporte=function(id){reporte=reporte.filter(r=>String(r.id)!==String(id));saveReporte();renderReporteDia();};
+// Notas → solo campo Nota; demás tipos → todos los campos. (No afecta el guardado.)
+function repToggleCampos(){
+  const esNota=document.getElementById('rep-tipo').value==='Notas';
+  document.getElementById('fld-rep-prod').style.display=esNota?'none':'';
+  document.getElementById('fld-rep-cant').style.display=esNota?'none':'';
+}
+document.getElementById('rep-tipo').addEventListener('change',repToggleCampos);
 document.getElementById('btn-rep-add').addEventListener('click',()=>{
   document.getElementById('rep-tipo').value='Sobrante';
   document.getElementById('rep-prod').value='';document.getElementById('rep-cant').value='';document.getElementById('rep-nota').value='';
+  repToggleCampos();
   abrirMov('m-reporte-add');
 });
 document.getElementById('btn-rep-save').addEventListener('click',()=>{
@@ -1706,6 +1714,13 @@ function renderReporteTabla(){
 }
 document.getElementById('btn-rep-tabla').addEventListener('click',abrirReporteTabla);
 document.getElementById('rept-fecha').addEventListener('change',renderReporteTabla);
+// Abre el modal de reporte preseleccionando una fecha concreta (usado por el Historial).
+window.abrirReporteDeFecha=function(f){
+  abrirReporteTabla();
+  const sel=document.getElementById('rept-fecha');
+  if([...sel.options].some(o=>o.value===f))sel.value=f;
+  renderReporteTabla();
+};
 
 document.getElementById('btn-mlp-dictar').addEventListener('click',()=>{
   const l=listas.find(x=>x.id==activoListaId);if(!l)return;
@@ -2210,8 +2225,13 @@ function renderHistorial(){
   let lista=listas.filter(l=>l.escuchada);
   if(filtFecha&&filtFecha!=='__todas__')lista=lista.filter(l=>l.fechaStr===filtFecha);
   if(filtId)lista=lista.filter(l=>l.chofer&&l.chofer.id==filtId);
-  if(!lista.length){cont.innerHTML='<div class="empty"><span>📋</span>'+((filtFecha&&filtFecha!=='__todas__')?'Sin listas en esta fecha':'No hay listas en el historial')+'</div>';return;}
-  cont.innerHTML='';
+  // Banner "Reporte del día": solo si hay una fecha concreta filtrada y esa fecha tiene reporte.
+  const fechaConc=(filtFecha&&filtFecha!=='__todas__')?filtFecha:'';
+  const repBanner=(fechaConc&&reporte.some(r=>r.fechaStr===fechaConc))
+    ?`<button class="btn bfull" style="background:#ff6f00;color:#fff;margin-bottom:9px;font-weight:800" onclick="abrirReporteDeFecha('${escHtml(fechaConc).replace(/'/g,"\\'")}')"><span class="bi">📒</span>Reporte del día</button>`
+    :'';
+  if(!lista.length){cont.innerHTML=repBanner+'<div class="empty"><span>📋</span>'+(fechaConc?'Sin listas en esta fecha':'No hay listas en el historial')+'</div>';return;}
+  cont.innerHTML=repBanner;
   lista.forEach(l=>{
     const ch=l.chofer;
     const avaHTML=ch?(ch.foto?`<div class="hist-ava"><img src="${ch.foto}"></div>`:`<div class="hist-ava" style="background:${strColor(ch.nombre)}">${iniciales(ch.nombre)}</div>`):`<div class="hist-ava">🧾</div>`;
