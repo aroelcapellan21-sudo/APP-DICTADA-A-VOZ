@@ -228,6 +228,9 @@ input[type=file]{display:none}
 
 .mov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-end;justify-content:center}
 .mov.open{display:flex}
+/* El modal de Novedades puede abrirse SOBRE el dictado (m-dictado), que va
+   después en el DOM; necesita z-index mayor para no quedar oculto detrás. */
+#m-novedad{z-index:210}
 /* FAB de dictado minimizado: indica que el dictado sigue en curso. */
 #fab-dictado{display:none;position:fixed;right:16px;bottom:74px;z-index:150;width:60px;height:60px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:0;animation:fabpulse 2s infinite}
 @keyframes fabpulse{0%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,.55)}70%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 13px rgba(211,47,47,0)}100%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,0)}}
