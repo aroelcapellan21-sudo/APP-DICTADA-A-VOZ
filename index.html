@@ -1295,7 +1295,7 @@ function renderEditAntes(){
     d.innerHTML=
       `<div class="ped-l1"><span class="ped-drag">⠿</span><span class="ped-st"></span>`+
       `<select class="ped-cat-sel" data-f="categoria">${opts.map(c=>`<option${c===it.categoria?' selected':''}>${esc(c)}</option>`).join('')}</select>`+
-      `<input class="ped-nom-in" data-f="nombre" value="${esc(it.nombre)}">`+
+      `<input class="ped-nom-in" data-f="nombre" value="${esc(it.nombre)}" autocomplete="off" list="dl-prod">`+
       (esDup?`<span title="Nombre repetido" style="color:#d32f2f;flex-shrink:0">⚠️</span>`:'')+
       `<button class="ped-del" onclick="delEditAntes(${i})">✕</button></div>`+
       `<div class="ped-l2">`+
@@ -1314,6 +1314,8 @@ function renderEditAntes(){
     // Categoría: editable, pero NO marca "revisado" (no entra en la validación).
     const sel=d.querySelector('select[data-f="categoria"]');
     if(sel)sel.addEventListener('change',()=>{it.categoria=sel.value;});
+    // Autocompletado del nombre con la categoría de la fila como prioridad.
+    engancharAutoProd(d.querySelector('.ped-nom-in'),'dl-prod',()=>sel?sel.value:'');
     d.addEventListener('dragstart',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){e.preventDefault();return;}dragSrc=i;d.classList.add('dragging');});
     d.addEventListener('dragend',()=>d.classList.remove('dragging'));
     d.addEventListener('dragover',e=>e.preventDefault());
