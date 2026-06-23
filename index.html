@@ -306,6 +306,8 @@ input[type=file]{display:none}
 .irow.active .ichk{background:var(--yellow);border-color:var(--yellow);color:#333}
 .iname{flex:1;font-size:.84rem}
 .iqty{font-size:.76rem;font-weight:700;color:var(--red)}
+/* Señal 🛑 — producto sin pronunciación en el Patrón (se lee crudo). Solo aviso. */
+.ifalta{flex-shrink:0;font-size:.9rem;line-height:1;cursor:help}
 
 .mnav{position:fixed;bottom:0;left:0;width:100%;background:white;display:grid;grid-template-columns:repeat(5,1fr);box-shadow:0 -3px 12px rgba(0,0,0,.12);padding:4px 1px;z-index:99}
 .mnav button{background:none;border:none;cursor:pointer;padding:5px 1px;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);width:100%}
@@ -1804,7 +1806,8 @@ function renderItemList(items){
     const c=catLect(p);
     if(c!==lastCat){const lbl=document.createElement('div');lbl.className='cat-lbl';lbl.textContent=c;list.appendChild(lbl);lastCat=c;}
     const r=document.createElement('div');r.className='irow'+(tieneNovedades(p)?' con-novedad':'');r.dataset.index=idx;
-    r.innerHTML=`<span class="inum">${idx+1}</span><div class="ichk"></div><span class="iname">${p.nombre}</span><span class="iqty">${p.cantidad}</span>`+(p._uid?`<button class="nov-btn${tieneNovedades(p)?' on':''}" onclick="event.stopPropagation();abrirNovedad('${p._uid}')" title="Novedades">🆕</button>`:'');
+    const falta=faltaVozPatron(p)?`<span class="ifalta" title="Falta definir pronunciación en el Patrón (se lee con el nombre crudo)">🛑</span>`:'';
+    r.innerHTML=`<span class="inum">${idx+1}</span><div class="ichk"></div><span class="iname">${p.nombre}</span>${falta}<span class="iqty">${p.cantidad}</span>`+(p._uid?`<button class="nov-btn${tieneNovedades(p)?' on':''}" onclick="event.stopPropagation();abrirNovedad('${p._uid}')" title="Novedades">🆕</button>`:'');
     list.appendChild(r);
   });
 }
@@ -1917,6 +1920,15 @@ function vozDe(it){
   const k=normNombre(it.nombre);
   const p=patron.find(x=>normNombre(x.nombre)===k);
   return (p&&p.texto_voz&&p.texto_voz.trim())?p.texto_voz.trim():it.nombre;
+}
+// Señal 🛑 (Sección 9b): true cuando el producto se va a LEER CRUDO porque no
+// hay pronunciación (texto_voz) en el Patrón para ese nombre — sea porque no
+// está en el Patrón o porque está pero sin texto_voz. Mismo macheo que vozDe();
+// es solo un aviso visual, NO altera audio, orden, categorías ni guardado.
+function faltaVozPatron(it){
+  const k=normNombre(it.nombre);
+  const p=patron.find(x=>normNombre(x.nombre)===k);
+  return !(p&&p.texto_voz&&p.texto_voz.trim());
 }
 // Cantidad para el AUDIO: las cantidades tipo código (con "/", ej. 24/1, 32/1)
 // no se pronuncian; las cantidades simples sí. La pantalla las muestra completas.
