@@ -231,6 +231,8 @@ input[type=file]{display:none}
 /* El modal de Novedades puede abrirse SOBRE el dictado (m-dictado), que va
    después en el DOM; necesita z-index mayor para no quedar oculto detrás. */
 #m-novedad{z-index:210}
+/* Botón "Atrás" 🔙 (arriba a la izquierda de la hoja) en todos los modales/paneles. */
+.mov-back{align-self:flex-start;background:none;border:none;font-size:1.15rem;line-height:1;cursor:pointer;padding:2px 6px 2px 2px;margin:-4px 0 2px -2px;color:var(--text)}
 /* FAB de dictado minimizado: indica que el dictado sigue en curso. */
 #fab-dictado{display:none;position:fixed;right:16px;bottom:74px;z-index:150;width:60px;height:60px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:0;animation:fabpulse 2s infinite}
 @keyframes fabpulse{0%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,.55)}70%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 13px rgba(211,47,47,0)}100%{box-shadow:0 4px 14px rgba(0,0,0,.3),0 0 0 0 rgba(211,47,47,0)}}
@@ -1026,6 +1028,19 @@ document.querySelectorAll('.mov').forEach(m=>m.addEventListener('click',e=>{
   if(m.id==='m-dictado')minimizarDictado();
   else m.classList.remove('open');
 }));
+
+// Botón "Atrás" 🔙 en todos los modales/paneles (.mov) excepto el dictado
+// (que ya tiene su ▽ minimizar). Hace lo mismo que tocar fuera: cierra ese
+// modal. Genérico → cubre también modales futuros. No toca otra lógica.
+document.querySelectorAll('.mov').forEach(mov=>{
+  if(mov.id==='m-dictado')return;
+  const msh=mov.querySelector('.msh');
+  if(!msh||msh.querySelector('.mov-back'))return;
+  const b=document.createElement('button');
+  b.type='button';b.className='mov-back';b.textContent='🔙';b.title='Atrás';
+  b.addEventListener('click',()=>mov.classList.remove('open'));
+  msh.insertBefore(b,msh.firstChild);
+});
 
 // ════ API ════
 document.getElementById('ai-prov').addEventListener('change',function(){aiProv=this.value;localStorage.setItem('bon_prov',aiProv);updModelInfo();});
