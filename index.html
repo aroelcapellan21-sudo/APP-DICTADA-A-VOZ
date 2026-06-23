@@ -1624,9 +1624,11 @@ window.abrirNovedad=function(uidItem){
   ['Faltante','Retirado','Agregado'].forEach(tp=>{
     const ex=actuales.find(n=>n.tipo===tp);
     const blk=document.createElement('div');blk.className='nov-blk'+(ex?' on':'');blk.dataset.tipo=tp;
-    blk.innerHTML=`<button type="button" class="nov-toggle">${tp}</button><div class="nov-campos"${ex?'':' style="display:none"'}><input class="inp nov-cant" type="number" inputmode="numeric" placeholder="Cantidad"><input class="inp nov-nota" placeholder="${tp==='Agregado'?'Nota (obligatoria)':'Nota (opcional)'}"></div>`;
+    blk.innerHTML=`<button type="button" class="nov-toggle">${tp}</button><div class="nov-campos"${ex?'':' style="display:none"'}><input class="inp nov-cant" type="number" inputmode="numeric" placeholder="Cantidad"><input class="inp nov-nota" placeholder="${tp==='Agregado'?'Nota (obligatoria)':'Nota (opcional)'}" autocomplete="off" list="dl-prod"></div>`;
     if(ex){blk.querySelector('.nov-cant').value=(ex.cantidad!=null?ex.cantidad:'');blk.querySelector('.nov-nota').value=ex.nota||'';}
     blk.querySelector('.nov-toggle').addEventListener('click',()=>{blk.classList.toggle('on');blk.querySelector('.nov-campos').style.display=blk.classList.contains('on')?'':'none';});
+    // La nota describe el producto → autocompletado (categoría del item como prioridad).
+    engancharAutoProd(blk.querySelector('.nov-nota'),'dl-prod',()=>catLect(it));
     cont.appendChild(blk);
   });
   abrirMov('m-novedad');
