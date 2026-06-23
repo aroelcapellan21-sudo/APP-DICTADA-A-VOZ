@@ -138,10 +138,22 @@ input[type=file]{display:none}
 .nov-blk .nov-campos{display:flex;gap:6px;margin-top:7px}
 .nov-blk .nov-campos .nov-cant{width:92px}
 .nov-blk .nov-campos .nov-nota{flex:1}
-/* Mejora H — tablas de consulta (Novedades por chofer / Reporte) */
-.data-tabla{width:100%;border-collapse:collapse;font-size:.72rem}
-.data-tabla th,.data-tabla td{border:1px solid var(--border);padding:4px 6px;text-align:left;vertical-align:top}
-.data-tabla th{background:var(--bg);font-weight:700;position:sticky;top:0}
+/* Consultas (Novedades por chofer / Reporte) — tarjeta por fila + chips */
+.info-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:.78rem}
+.info-card .ic-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px}
+.info-card .ic-meta{font-size:.68rem;color:var(--muted);text-align:right;flex-shrink:0}
+.info-card .ic-body{color:var(--text)}
+.info-card .ic-nota{font-size:.72rem;color:var(--muted);font-style:italic;margin-top:2px}
+.chip{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 9px;border-radius:99px;line-height:1.6;text-transform:uppercase;letter-spacing:.03em}
+.chip-nov{background:rgba(255,109,0,.15);color:#e65100}
+.chip-rep{background:var(--blue-l);color:var(--blue)}
+.chip-cat{background:var(--red-l);color:var(--red)}
+/* Detalle de lista (historial) — tarjetas por categoría */
+.ver-cat{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:9px 11px;margin-top:7px}
+.ver-prod{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:4px 0;border-bottom:1px solid var(--border)}
+.ver-prod:last-child{border-bottom:none}
+.ver-prod .vp-q{color:var(--red);font-weight:700}
+.ver-nov{font-size:.7rem;color:#e65100;padding:1px 0 4px 2px}
 /* Mejora H — filas del reporte del día */
 .rep-row{display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;font-size:.78rem}
 .rep-row .rep-tipo{font-weight:700;color:var(--red);flex-shrink:0;min-width:80px;font-size:.7rem}
@@ -1632,8 +1644,11 @@ function renderNovTabla(){
   if(ch)rows=rows.filter(r=>String(r.chId)===String(ch));
   const cont=document.getElementById('novt-body');
   if(!rows.length){cont.innerHTML='<div class="empty"><span>🆕</span>Sin novedades</div>';return;}
-  cont.innerHTML='<table class="data-tabla"><thead><tr><th>Fecha</th><th>Chofer</th><th>Producto</th><th>Tipo</th><th>Cant.</th><th>Nota</th></tr></thead><tbody>'+
-    rows.map(r=>`<tr><td>${escHtml(r.fechaStr)}</td><td>${escHtml(r.chofer)}</td><td>${escHtml(r.producto)}</td><td>${escHtml(r.tipo)}</td><td>${escHtml(r.cantidad)}</td><td>${escHtml(r.nota)}</td></tr>`).join('')+'</tbody></table>';
+  cont.innerHTML=rows.map(r=>`<div class="info-card">`+
+    `<div class="ic-top"><span class="chip chip-nov">${escHtml(r.tipo)}</span><span class="ic-meta">${escHtml(r.fechaStr)} · ${escHtml(r.chofer)}</span></div>`+
+    `<div class="ic-body">${escHtml(r.producto)}${r.cantidad?` · <b>Cant:</b> ${escHtml(r.cantidad)}`:''}</div>`+
+    (r.nota?`<div class="ic-nota">"${escHtml(r.nota)}"</div>`:'')+
+    `</div>`).join('');
 }
 document.getElementById('btn-nov-tabla').addEventListener('click',abrirNovTabla);
 document.getElementById('novt-fecha').addEventListener('change',renderNovTabla);
@@ -1676,8 +1691,14 @@ function renderReporteTabla(){
   if(f)rows=rows.filter(r=>r.fechaStr===f);
   const cont=document.getElementById('rept-body');
   if(!rows.length){cont.innerHTML='<div class="empty"><span>📒</span>Sin entradas</div>';return;}
-  cont.innerHTML='<table class="data-tabla"><thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Cant.</th><th>Nota</th></tr></thead><tbody>'+
-    rows.map(r=>`<tr><td>${escHtml(r.fechaStr)}</td><td>${escHtml(r.tipo)}</td><td>${escHtml(r.producto)}</td><td>${escHtml(r.cantidad)}</td><td>${escHtml(r.nota)}</td></tr>`).join('')+'</tbody></table>';
+  cont.innerHTML=rows.map(r=>{
+    const det=[r.producto,(r.cantidad?'Cant: '+r.cantidad:'')].filter(Boolean).map(escHtml).join(' · ')||'—';
+    return `<div class="info-card">`+
+      `<div class="ic-top"><span class="chip chip-rep">${escHtml(r.tipo)}</span><span class="ic-meta">${escHtml(r.fechaStr)}</span></div>`+
+      `<div class="ic-body">${det}</div>`+
+      (r.nota?`<div class="ic-nota">"${escHtml(r.nota)}"</div>`:'')+
+      `</div>`;
+  }).join('');
 }
 document.getElementById('btn-rep-tabla').addEventListener('click',abrirReporteTabla);
 document.getElementById('rept-fecha').addEventListener('change',renderReporteTabla);
@@ -2213,11 +2234,11 @@ window.verListaModal=function(id){
   const g=grupBy(l.items);
   let html=`<div style="margin-bottom:9px"><div style="font-size:.7rem;color:var(--muted)">${l.fecha}</div><div style="font-size:.96rem;font-weight:800;color:var(--red)">${l.nombre}</div>${l.chofer?`<div style="font-size:.76rem;color:var(--muted)">${l.chofer.nombre} · ${l.chofer.ficha}</div>`:''}</div>`;
   if(l.notas)html+=`<div style="font-size:.78rem;color:var(--muted);font-style:italic;background:var(--yellow-l);padding:7px 10px;border-radius:8px;margin-bottom:8px">📝 ${l.notas}</div>`;
-  for(const[cat,prods] of Object.entries(g)){html+=`<div class="catblk" style="background:#f5f5f5;padding:9px 11px;border-radius:10px;margin-top:6px"><h4 style="color:var(--red);margin-bottom:5px;font-size:.84rem">${cat}</h4>${prods.map(p=>{
-    let fila=`<div style="display:flex;justify-content:space-between;font-size:.8rem;padding:3px 0;border-bottom:1px dashed var(--border)"><span>${p.nombre}</span><span style="color:var(--red);font-weight:700">${p.cantidad}</span></div>`;
-    if(p.novedades&&p.novedades.length)fila+=`<div style="font-size:.7rem;color:#e65100;padding:2px 0 4px 2px">`+p.novedades.map(n=>`🆕 ${escHtml(n.tipo)}${n.cantidad?(' · '+escHtml(n.cantidad)):''}${n.nota?(' — '+escHtml(n.nota)):''}`).join('<br>')+`</div>`;
+  for(const[cat,prods] of Object.entries(g)){html+=`<div class="ver-cat"><span class="chip chip-cat">${escHtml(cat)}</span><div style="margin-top:5px">`+prods.map(p=>{
+    let fila=`<div class="ver-prod"><span>${escHtml(p.nombre)}</span><span class="vp-q">${escHtml(p.cantidad)}</span></div>`;
+    if(p.novedades&&p.novedades.length)fila+=`<div class="ver-nov">`+p.novedades.map(n=>`🆕 ${escHtml(n.tipo)}${n.cantidad?(' · '+escHtml(n.cantidad)):''}${n.nota?(' — '+escHtml(n.nota)):''}`).join('<br>')+`</div>`;
     return fila;
-  }).join('')}</div>`;}
+  }).join('')+`</div></div>`;}
   document.getElementById('m-ver-body').innerHTML=html;abrirMov('m-ver-lista');
 };
 
