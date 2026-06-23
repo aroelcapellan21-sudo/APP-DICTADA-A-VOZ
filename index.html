@@ -533,7 +533,7 @@ input[type=file]{display:none}
     <div id="aj-prods" style="display:flex;flex-direction:column;gap:4px;margin-bottom:7px"></div>
     <div style="display:flex;gap:6px">
       <select id="aj-cat" class="inp sel" style="flex:0 0 auto;width:115px"></select>
-      <input type="text" id="aj-prod-nm" class="inp" placeholder="Nombre" style="flex:1">
+      <input type="text" id="aj-prod-nm" class="inp" placeholder="Nombre" style="flex:1" autocomplete="off" list="dl-prod">
     </div>
     <button class="btn bgreen bfull" id="btn-aj-add-prod">+ Agregar</button>
   </div></div>
@@ -624,7 +624,7 @@ input[type=file]{display:none}
 <div class="mov" id="m-reporte-add"><div class="msh">
   <div class="mhdl"></div><div class="mtit">📒 Agregar al reporte del día</div>
   <div class="fld"><label>Tipo</label><select id="rep-tipo" class="inp sel"><option>Sobrante</option><option>Dañados</option><option>Pendientes</option><option>Agotado</option><option>Notas</option></select></div>
-  <div class="fld" id="fld-rep-prod"><label>Producto (opcional)</label><input id="rep-prod" class="inp" placeholder="Producto"></div>
+  <div class="fld" id="fld-rep-prod"><label>Producto (opcional)</label><input id="rep-prod" class="inp" placeholder="Producto" autocomplete="off" list="dl-prod"><datalist id="dl-prod"></datalist></div>
   <div class="fld" id="fld-rep-cant"><label>Cantidad (opcional)</label><input id="rep-cant" class="inp" type="number" inputmode="numeric" placeholder="Cantidad"></div>
   <div class="fld"><label>Nota (opcional)</label><textarea id="rep-nota" class="inp" rows="2" placeholder="Nota" style="resize:vertical"></textarea></div>
   <div class="g2" style="margin-top:8px"><button class="btn bout" onclick="cerrarMov('m-reporte-add')">Cancelar</button><button class="btn bgreen" id="btn-rep-save">Guardar</button></div>
@@ -876,7 +876,9 @@ function construirDiccionarioNombres(){
     const t=String(nombre||'').trim();if(t)e.formas[t]=(e.formas[t]||0)+peso;
     if(cat)e.cats[cat]=(e.cats[cat]||0)+peso;
   };
-  // Primario: nombres tal cual vinieron en facturas.
+  // Fuente principal: productos del Patrón (orden oficial) — peso alto: salen primero.
+  patron.forEach(p=>sumar(p.nombre,p.categoria,3));
+  // Primario: nombres tal cual vinieron en facturas (historial).
   listas.forEach(l=>(l.items||[]).forEach(it=>sumar(it.nombre,it.categoria,2)));
   // Secundario: catálogo manual.
   catalogo.forEach(p=>sumar(p.n,p.c,1));
@@ -903,6 +905,23 @@ function poblarDatalist(idDatalist,catPrioritaria){
   dl.innerHTML=[...prio,...resto].slice(0,300)
     .map(d=>`<option value="${esc(d.nombre)}"${d.cat?` label="${esc(d.cat)}"`:''}>`).join('');
 }
+// Mini mejora — autocompletado de productos (Patrón + listas). Las sugerencias
+// solo se cargan con ≥2 caracteres; con menos, el datalist queda vacío.
+function engancharAutoProd(el,dlId,catFn){
+  if(!el)return;
+  const run=()=>{
+    const dl=document.getElementById(dlId);
+    const v=(el.value||'').trim();
+    if(v.length<2){if(dl)dl.innerHTML='';return;}
+    poblarDatalist(dlId,catFn?catFn():'');
+  };
+  el.addEventListener('input',run);el.addEventListener('focus',run);
+}
+// Campos estáticos de nombre de producto. (.pn del Patrón se engancha en renderPatron.)
+engancharAutoProd(document.getElementById('rep-prod'),'dl-prod');
+engancharAutoProd(document.getElementById('aj-prod-nm'),'dl-prod');
+engancharAutoProd(document.getElementById('m-nm'),'dl-man',()=>document.getElementById('m-cat').value);
+engancharAutoProd(document.getElementById('ap-nm'),'dl-ap',()=>document.getElementById('ap-cat').value);
 
 // Categoría de LECTURA de un item: la del Patrón si el item está emparejado
 // (_catLect), si no la que traía de la factura. Nunca toca el dato guardado.
@@ -1276,7 +1295,7 @@ function renderEditAntes(){
     d.innerHTML=
       `<div class="ped-l1"><span class="ped-drag">⠿</span><span class="ped-st"></span>`+
       `<select class="ped-cat-sel" data-f="categoria">${opts.map(c=>`<option${c===it.categoria?' selected':''}>${esc(c)}</option>`).join('')}</select>`+
-      `<input class="ped-nom-in" data-f="nombre" value="${esc(it.nombre)}">`+
+      `<input class="ped-nom-in" data-f="nombre" value="${esc(it.nombre)}" autocomplete="off" list="dl-prod">`+
       (esDup?`<span title="Nombre repetido" style="color:#d32f2f;flex-shrink:0">⚠️</span>`:'')+
       `<button class="ped-del" onclick="delEditAntes(${i})">✕</button></div>`+
       `<div class="ped-l2">`+
@@ -1295,6 +1314,8 @@ function renderEditAntes(){
     // Categoría: editable, pero NO marca "revisado" (no entra en la validación).
     const sel=d.querySelector('select[data-f="categoria"]');
     if(sel)sel.addEventListener('change',()=>{it.categoria=sel.value;});
+    // Autocompletado del nombre con la categoría de la fila como prioridad.
+    engancharAutoProd(d.querySelector('.ped-nom-in'),'dl-prod',()=>sel?sel.value:'');
     d.addEventListener('dragstart',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){e.preventDefault();return;}dragSrc=i;d.classList.add('dragging');});
     d.addEventListener('dragend',()=>d.classList.remove('dragging'));
     d.addEventListener('dragover',e=>e.preventDefault());
@@ -1603,9 +1624,11 @@ window.abrirNovedad=function(uidItem){
   ['Faltante','Retirado','Agregado'].forEach(tp=>{
     const ex=actuales.find(n=>n.tipo===tp);
     const blk=document.createElement('div');blk.className='nov-blk'+(ex?' on':'');blk.dataset.tipo=tp;
-    blk.innerHTML=`<button type="button" class="nov-toggle">${tp}</button><div class="nov-campos"${ex?'':' style="display:none"'}><input class="inp nov-cant" type="number" inputmode="numeric" placeholder="Cantidad"><input class="inp nov-nota" placeholder="${tp==='Agregado'?'Nota (obligatoria)':'Nota (opcional)'}"></div>`;
+    blk.innerHTML=`<button type="button" class="nov-toggle">${tp}</button><div class="nov-campos"${ex?'':' style="display:none"'}><input class="inp nov-cant" type="number" inputmode="numeric" placeholder="Cantidad"><input class="inp nov-nota" placeholder="${tp==='Agregado'?'Nota (obligatoria)':'Nota (opcional)'}" autocomplete="off" list="dl-prod"></div>`;
     if(ex){blk.querySelector('.nov-cant').value=(ex.cantidad!=null?ex.cantidad:'');blk.querySelector('.nov-nota').value=ex.nota||'';}
     blk.querySelector('.nov-toggle').addEventListener('click',()=>{blk.classList.toggle('on');blk.querySelector('.nov-campos').style.display=blk.classList.contains('on')?'':'none';});
+    // La nota describe el producto → autocompletado (categoría del item como prioridad).
+    engancharAutoProd(blk.querySelector('.nov-nota'),'dl-prod',()=>catLect(it));
     cont.appendChild(blk);
   });
   abrirMov('m-novedad');
@@ -2355,7 +2378,7 @@ function renderPatron(){
   });
   cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].nombre=e.target.value;savePat();}));
   // Al enfocar un nombre del Patrón, el datalist prioriza la categoría de esa fila.
-  cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('focus',e=>poblarDatalist('dl-pat',e.target.dataset.cat)));
+  cont.querySelectorAll('.pn').forEach(el=>engancharAutoProd(el,'dl-pat',()=>el.dataset.cat));
   cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].cantidad=e.target.value;savePat();}));
   // texto_voz (Sección 1): lo escribe el usuario a mano, opcional. Vacío => se
   // lee el nombre crudo. Vive solo en el Patrón; no se sugiere automáticamente.
