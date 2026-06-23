@@ -180,6 +180,7 @@ input[type=file]{display:none}
 .hist-nom{font-size:.86rem;font-weight:700;color:var(--text)}
 .hist-fecha{font-size:.64rem;color:var(--muted)}
 .hist-badge{background:var(--green-l);color:var(--green);font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:99px;border:1px solid #a5d6a7}
+.hist-nov-badge{background:#ff6d00;color:#fff;font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:99px;margin-right:5px;box-shadow:0 0 0 2px rgba(255,109,0,.25)}
 .hist-body{padding:8px 12px}
 .hist-prow{display:flex;justify-content:space-between;font-size:.76rem;padding:2px 0;border-bottom:1px dashed var(--border)}
 .hist-prow:last-child{border-bottom:none}
@@ -2218,8 +2219,9 @@ function renderHistorial(){
     const prods=l.items.slice(0,3).map(p=>`<div class="hist-prow"><span>${p.nombre}</span><span style="color:var(--red);font-weight:700">${p.cantidad}</span></div>`).join('');
     const mas=l.items.length>3?`<div style="font-size:.7rem;color:var(--muted)">+${l.items.length-3} más</div>`:'';
     const notasHTML=l.notas?`<div style="font-size:.7rem;color:var(--muted);font-style:italic;padding:3px 0">📝 ${l.notas}</div>`:'';
+    const nNov=(l.items||[]).filter(it=>it.novedades&&it.novedades.length).length;
     d.innerHTML=`
-      <div class="hist-hd">${avaHTML}<div style="flex:1"><div class="hist-nom">${l.nombre}</div><div class="hist-fecha">${l.fecha}${ch?' · '+ch.ficha:''}</div></div><span class="hist-badge">${l.items.length}</span></div>
+      <div class="hist-hd">${avaHTML}<div style="flex:1"><div class="hist-nom">${l.nombre}</div><div class="hist-fecha">${l.fecha}${ch?' · '+ch.ficha:''}</div></div>${nNov?`<span class="hist-nov-badge">🆕 ${nNov}</span>`:''}<span class="hist-badge">${l.items.length}</span></div>
       <div class="hist-body">${notasHTML}${prods}${mas}</div>
       <div class="hist-acts">
         <button class="hist-btn" style="background:var(--green-l);color:var(--green)" onclick="verListaModal('${l.id}')">👁 Ver</button>
