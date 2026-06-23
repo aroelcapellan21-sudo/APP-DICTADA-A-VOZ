@@ -159,6 +159,8 @@ input[type=file]{display:none}
 .rep-row .rep-tipo{font-weight:700;color:var(--red);flex-shrink:0;min-width:80px;font-size:.7rem}
 .rep-row .rep-txt{flex:1}
 .rep-row .rep-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem}
+/* Mejora K — ✓ producto reconocido del diccionario estándar (asociación). */
+.prod-ok{color:var(--green);font-weight:800;margin-right:3px}
 .ch-add{background:var(--bg);border-radius:14px;border:2px dashed var(--border);padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;min-height:110px}
 .ch-add span{font-size:1.6rem}
 .ch-add p{font-size:.71rem;color:var(--muted)}
@@ -895,6 +897,27 @@ function indicePatronPorNombre(){
   const m=new Map();
   patron.forEach(p=>{const n=normNombre(p.nombre);if(n&&!m.has(n))m.set(n,p.categoria||'Otros');});
   return m;
+}
+// ─── Mejora K: reconocimiento/asociación de productos por diccionario estándar ───
+// Map(normNombre -> nombre canónico) desde el diccionario estandarizado (Patrón +
+// historial + catálogo). La forma canónica es la más frecuente (la que aparece en
+// las sugerencias del datalist).
+function mapaCanonicoProductos(){
+  const m=new Map();
+  construirDiccionarioNombres().forEach(d=>{const n=normNombre(d.nombre);if(n&&!m.has(n))m.set(n,d.nombre);});
+  return m;
+}
+// Reconoce un texto como producto del diccionario SOLO si coincide EXACTO con el
+// nombre estándar (lo que ocurre al ELEGIR una sugerencia). El texto libre que no
+// coincide se deja TAL CUAL (no se reescribe). Match exacto, nunca difuso
+// (ver memoria match-exacto-no-fuzzy). Devuelve la norma para asociar la entrada
+// al producto correcto sin tocar lo que el usuario ve.
+function reconocerProducto(texto){
+  const t=String(texto==null?'':texto).trim();
+  const n=normNombre(t);
+  const canon=n?mapaCanonicoProductos().get(n):'';
+  const reconocido=!!(canon&&t===canon);
+  return {nombre:reconocido?canon:t, norm:reconocido?n:'', reconocido};
 }
 // Llena un <datalist> con el diccionario, poniendo primero los nombres de la
 // categoría prioritaria (el contexto en que se escribe) y luego el resto.
@@ -1644,7 +1667,10 @@ document.getElementById('btn-nov-save').addEventListener('click',()=>{
     const cantidad=blk.querySelector('.nov-cant').value.trim();
     const nota=blk.querySelector('.nov-nota').value.trim();
     if(tipo==='Agregado'&&!nota){alert('La nota es obligatoria para "Agregado".');return;}
-    novs.push({tipo,cantidad,nota});
+    // Mejora K: si la nota es un producto reconocido del diccionario (p.ej. en
+    // "Agregado"), se asocia con su norma. Nota de texto libre => sin norma.
+    const rn=reconocerProducto(nota);
+    novs.push(rn.reconocido?{tipo,cantidad,nota,notaNorm:rn.norm}:{tipo,cantidad,nota});
   }
   const lista=listas.find(l=>l.id==novCtx.listaId);if(!lista){cerrarMov('m-novedad');return;}
   const it=lista.items.find(x=>x._uid===novCtx.uid);if(!it){cerrarMov('m-novedad');return;}
@@ -1663,7 +1689,7 @@ function escHtml(s){return String(s==null?'':s).replace(/[<>&]/g,m=>({'<':'&lt;'
 function recolectarNovedades(){
   const rows=[];
   listas.forEach(l=>{(l.items||[]).forEach(it=>{(it.novedades||[]).forEach(n=>{
-    rows.push({fechaStr:l.fechaStr,chofer:l.chofer?l.chofer.nombre:'Sin chofer',chId:l.chofer?l.chofer.id:'',producto:it.nombre,tipo:n.tipo,cantidad:n.cantidad,nota:n.nota});
+    rows.push({fechaStr:l.fechaStr,chofer:l.chofer?l.chofer.nombre:'Sin chofer',chId:l.chofer?l.chofer.id:'',producto:it.nombre,tipo:n.tipo,cantidad:n.cantidad,nota:n.nota,notaNorm:n.notaNorm||''});
   });});});
   return rows;
 }
@@ -1684,7 +1710,7 @@ function renderNovTabla(){
   cont.innerHTML=rows.map(r=>`<div class="info-card">`+
     `<div class="ic-top"><span class="chip chip-nov">${escHtml(r.tipo)}</span><span class="ic-meta">${escHtml(r.fechaStr)} · ${escHtml(r.chofer)}</span></div>`+
     `<div class="ic-body">${escHtml(r.producto)}${r.cantidad?` · <b>Cant:</b> ${escHtml(r.cantidad)}`:''}</div>`+
-    (r.nota?`<div class="ic-nota">"${escHtml(r.nota)}"</div>`:'')+
+    (r.nota?`<div class="ic-nota">${r.notaNorm?'<span class="prod-ok" title="Producto reconocido del diccionario estándar">✓</span>':''}"${escHtml(r.nota)}"</div>`:'')+
     `</div>`).join('');
 }
 document.getElementById('btn-nov-tabla').addEventListener('click',abrirNovTabla);
@@ -1698,7 +1724,8 @@ function renderReporteDia(){
   const rows=reporte.filter(r=>r.fechaStr===hoy);
   if(!rows.length){cont.innerHTML='<div class="empty" style="opacity:.7"><span>📒</span>Sin entradas hoy</div>';return;}
   cont.innerHTML=rows.map(r=>{
-    const detalle=[r.producto,r.cantidad].filter(Boolean).map(escHtml).join(' · ');
+    const prod=r.producto?`${r.productoNorm?'<span class="prod-ok" title="Producto reconocido del diccionario estándar">✓</span>':''}${escHtml(r.producto)}`:'';
+    const detalle=[prod,r.cantidad?escHtml(r.cantidad):''].filter(Boolean).join(' · ');
     return `<div class="rep-row"><span class="rep-tipo">${escHtml(r.tipo)}</span><span class="rep-txt">${detalle}${r.nota?(detalle?' — ':'')+escHtml(r.nota):''}</span><button class="rep-del" onclick="delReporte('${r.id}')">✕</button></div>`;
   }).join('');
 }
@@ -1722,7 +1749,10 @@ document.getElementById('btn-rep-save').addEventListener('click',()=>{
   const cantidad=document.getElementById('rep-cant').value.trim();
   const nota=document.getElementById('rep-nota').value.trim();
   if(!producto&&!cantidad&&!nota){alert('Escribe al menos un dato (producto, cantidad o nota).');return;}
-  reporte.unshift({id:uid(),fechaStr:hoyStr(),fecha:new Date().toLocaleString('es-DO'),tipo,producto,cantidad,nota});
+  // Mejora K: si el producto coincide con una sugerencia del diccionario, se guarda
+  // la norma (productoNorm) para asociarlo al producto correcto. Texto libre => sin norma.
+  const rp=reconocerProducto(producto);
+  reporte.unshift({id:uid(),fechaStr:hoyStr(),fecha:new Date().toLocaleString('es-DO'),tipo,producto:rp.nombre,productoNorm:rp.norm,cantidad,nota});
   saveReporte();cerrarMov('m-reporte-add');renderReporteDia();
 });
 function abrirReporteTabla(){
@@ -1737,7 +1767,8 @@ function renderReporteTabla(){
   const cont=document.getElementById('rept-body');
   if(!rows.length){cont.innerHTML='<div class="empty"><span>📒</span>Sin entradas</div>';return;}
   cont.innerHTML=rows.map(r=>{
-    const det=[r.producto,(r.cantidad?'Cant: '+r.cantidad:'')].filter(Boolean).map(escHtml).join(' · ')||'—';
+    const prod=r.producto?`${r.productoNorm?'<span class="prod-ok" title="Producto reconocido del diccionario estándar">✓</span>':''}${escHtml(r.producto)}`:'';
+    const det=[prod,(r.cantidad?'Cant: '+escHtml(r.cantidad):'')].filter(Boolean).join(' · ')||'—';
     return `<div class="info-card">`+
       `<div class="ic-top"><span class="chip chip-rep">${escHtml(r.tipo)}</span><span class="ic-meta">${escHtml(r.fechaStr)}</span></div>`+
       `<div class="ic-body">${det}</div>`+
