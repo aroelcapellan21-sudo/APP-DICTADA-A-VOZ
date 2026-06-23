@@ -2,6 +2,8 @@
 
 **Producción:** https://app-dictada-a-voz.vercel.app
 
+**Manual de usuario:** [MANUAL-USUARIO.md](MANUAL-USUARIO.md)
+
 PWA para leer facturas de helados BON con IA (Gemini o Claude). El frontend
 está en `index.html` y un backend Express hace de **proxy** hacia las APIs de
 Gemini y Claude, lo que evita los problemas de CORS de Claude y mantiene las
