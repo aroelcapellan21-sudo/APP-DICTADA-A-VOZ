@@ -442,6 +442,7 @@ input[type=file]{display:none}
     <div class="card-hd">Historial de listas</div>
     <div class="card-bd" style="padding:9px 10px">
       <button class="btn bout bfull" id="btn-nov-tabla" style="margin-bottom:9px"><span class="bi">🆕</span>Novedades por chofer</button>
+      <select id="filtro-fecha" class="inp sel" style="margin-bottom:9px"></select>
       <select id="filtro-ch" class="inp sel" style="margin-bottom:9px"><option value="">Todos los choferes</option></select>
       <div id="hist-list"></div>
     </div>
@@ -2163,12 +2164,28 @@ function abrirAddPatron(cat){
 }
 
 // ════ HISTORIAL ════
+// Pizarra por día: el selector arranca en HOY (siempre primero) y lista las demás
+// fechas con listas guardadas, en orden cronológico desc, más una opción "Todas".
+function poblarFiltroFecha(){
+  const sel=document.getElementById('filtro-fecha');if(!sel)return;
+  const prev=sel.value;
+  const m=new Map();
+  listas.filter(l=>l.escuchada).forEach(l=>{const t=m.get(l.fechaStr)||0;if(l.id>t)m.set(l.fechaStr,l.id);});
+  const hoy=hoyStr();
+  m.set(hoy,Number.MAX_SAFE_INTEGER); // Hoy siempre presente y primero
+  const fechas=[...m.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+  sel.innerHTML=fechas.map(f=>`<option value="${escHtml(f)}">${f===hoy?'Hoy ('+escHtml(f)+')':escHtml(f)}</option>`).join('')+'<option value="__todas__">Todas las fechas</option>';
+  sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?prev:hoy;
+}
 function renderHistorial(){
+  poblarFiltroFecha();
   const cont=document.getElementById('hist-list');
   const filtId=document.getElementById('filtro-ch').value;
+  const filtFecha=document.getElementById('filtro-fecha').value;
   let lista=listas.filter(l=>l.escuchada);
+  if(filtFecha&&filtFecha!=='__todas__')lista=lista.filter(l=>l.fechaStr===filtFecha);
   if(filtId)lista=lista.filter(l=>l.chofer&&l.chofer.id==filtId);
-  if(!lista.length){cont.innerHTML='<div class="empty"><span>📋</span>No hay listas en el historial</div>';return;}
+  if(!lista.length){cont.innerHTML='<div class="empty"><span>📋</span>'+((filtFecha&&filtFecha!=='__todas__')?'Sin listas en esta fecha':'No hay listas en el historial')+'</div>';return;}
   cont.innerHTML='';
   lista.forEach(l=>{
     const ch=l.chofer;
@@ -2189,6 +2206,7 @@ function renderHistorial(){
   });
 }
 document.getElementById('filtro-ch').addEventListener('change',renderHistorial);
+document.getElementById('filtro-fecha').addEventListener('change',renderHistorial);
 
 window.verListaModal=function(id){
   const l=listas.find(x=>x.id==id);if(!l)return;
