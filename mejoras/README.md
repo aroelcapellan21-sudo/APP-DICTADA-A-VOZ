@@ -31,7 +31,8 @@ Leyenda de estado: ✅ implementado · ⚠️ parcial · ❌ pendiente.
 | `E-panel-dictado-pantalla-completa.md` | Panel de dictado a pantalla completa | ❌ |
 | `F-cantidades-grandes-lista-voz.md` | Números de cantidad más grandes en la lista del lector de voz | ❌ |
 | `G-confianza-nombre-producto.md` | Extender la confianza por campo también al nombre del producto | ❌ |
-| `H-novedades-por-producto.md` | Novedades por producto en la lista del chofer (botón + modal de 8 tipos) | ❌ |
+| `H-novedades-por-producto.md` | Novedades por producto en la lista del chofer (botón + modal de 8 tipos) | ✅ (rama mejora-h-novedades) |
+| `J-whatsapp-firma-confirmacion-chofer.md` | Compartir al chofer por WhatsApp + firma/confirmación del chofer + estado "completado" | ❌ |
 
 ## Orden de ejecución sugerido en el informe original
 
