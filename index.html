@@ -509,6 +509,9 @@ input[type=file]{display:none}
 
 <!-- ══ AJUSTES ══ -->
 <div class="page" id="page-ajustes">
+  <div class="aj-sec"><div class="aj-hd">Aplicación</div><div class="aj-bd">
+    <button class="btn bred bfull" onclick="navTo('instalar');setupInstall()"><span class="bi">📲</span>Instalar la app</button>
+  </div></div>
   <div class="aj-sec"><div class="aj-hd">Seguridad</div><div class="aj-bd">
     <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin:0">🔒 La contraseña se verifica en el servidor y se gestiona como variable de entorno <strong>PATRON_PASSWORD</strong> en Vercel. Para cambiarla, edítala allí (Project Settings → Environment Variables) y vuelve a desplegar.</p>
   </div></div>
@@ -545,7 +548,6 @@ input[type=file]{display:none}
   <button onclick="navTo('choferes',this)"><span class="mi">👤</span><span class="ml">Choferes</span></button>
   <button onclick="navTo('historial',this);renderHistorial()"><span class="mi">📋</span><span class="ml">Historial</span></button>
   <button onclick="navTo('reporte',this);renderReporteDia()"><span class="mi">📒</span><span class="ml">Reporte</span></button>
-  <button onclick="navTo('instalar',this);setupInstall()"><span class="mi">📲</span><span class="ml">Instalar</span></button>
 </nav>
 
 <!-- MODAL: PANEL LISTA (al tocar burbuja) -->
