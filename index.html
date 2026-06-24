@@ -653,6 +653,9 @@ input[type=file]{display:none}
 
 <!-- MODAL: DICTADO -->
 <div class="mov" id="m-dictado">
+  <!-- Audio silencioso en loop: solo sostiene la Media Session para que el SO
+       entregue el botón ⏭️ de auriculares/manos libres BT o cable. No se oye. -->
+  <audio id="audio-silencio" loop preload="auto" playsinline></audio>
   <div class="msh">
     <button id="btn-min-dictado" title="Minimizar (el dictado sigue)">▽</button>
     <button id="btn-nota-dictado" title="Nota del despacho">📝</button>
@@ -772,6 +775,8 @@ const CONFIG_LECTURA = Object.assign(
 function saveCfgLectura(){ localStorage.setItem('bon_cfg_lectura', JSON.stringify(CONFIG_LECTURA)); }
 let manItems=[],aaEnabled=true,aaSecs=5,aaInterval=null,aaRem=0,micOn=false,paused=false;
 let chFotoUrl=null,dragSrc=null,activoListaId=null,addProdTarget=null;
+// WAV silencioso (0.2s, loop) que sostiene la Media Session del dictado.
+const SILENCIO_WAV='data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
 let pendingGuardar=false;
 
 let choferes=JSON.parse(localStorage.getItem('bon_ch')||'[]');
@@ -1859,7 +1864,7 @@ document.getElementById('btn-nota-dictado').addEventListener('click',e=>{
 
 document.getElementById('btn-cerrar-dictado').addEventListener('click',()=>{
   cerrarMov('m-dictado');ocultarFabDictado();
-  stopVoice();clearAA();
+  stopVoice();clearAA();detenerMediaSession();
   navTo('despacho',document.querySelectorAll('.mnav button')[1]);
   renderDespacho();
 });
@@ -1904,7 +1909,7 @@ function iniciarDictado(listaId){
   document.getElementById('results-sec').style.display='flex';
   document.getElementById('aa-lbl').textContent=aaSecs+'s';
   updPausaBtn();updAAEstado();
-  startVoice();nextItem(listaId);
+  startVoice();iniciarMediaSession();nextItem(listaId);
 }
 
 // Avanza al siguiente producto. El TTS (speakCur) y el temporizador de
@@ -1971,7 +1976,7 @@ function markUndone(i){
   });
 }
 function finalizarDictado(listaId){
-  clearAA();stopVoice();
+  clearAA();stopVoice();detenerMediaSession();
   const l=listas.find(x=>x.id==listaId);
   if(l){l.escuchada=true;saveListas();}
   document.getElementById('prog-bar').style.width='100%';
@@ -2110,6 +2115,40 @@ function startVoice(){
   try{recognition.start();}catch(e){}
 }
 function stopVoice(){micOn=false;if(recognition){try{recognition.stop();}catch(e){}}recognition=null;document.getElementById('mic-ind').classList.remove('on');}
+
+// ════ MEDIA SESSION (botón ⏭️ de auriculares/manos libres BT o cable) ════
+// Mapea el botón "siguiente pista" (nexttrack) de CUALQUIER dispositivo con
+// controles de medios al MISMO nextItem() del dictado — genérico, sin marca ni
+// modelo. Es ADITIVO y con degradación elegante: si la API no existe, no hay
+// dispositivo, o el dispositivo no manda nexttrack, la app funciona igual que
+// siempre (el ⏭️ de pantalla y los comandos de voz quedan intactos).
+// La Media Session necesita "media activa" para que el SO entregue el evento,
+// así que mientras dura el dictado suena #audio-silencio en loop (volumen 0;
+// no se oye nada). Se arranca al iniciar el dictado y se detiene al salir o
+// completar; minimizar NO lo detiene (el dictado sigue).
+let mediaSilent=null;
+function iniciarMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  try{
+    if(!mediaSilent){
+      mediaSilent=document.getElementById('audio-silencio');
+      if(mediaSilent&&!mediaSilent.src)mediaSilent.src=SILENCIO_WAV;
+    }
+    if(mediaSilent){mediaSilent.loop=true;mediaSilent.volume=0;const p=mediaSilent.play();if(p&&p.catch)p.catch(()=>{});}
+    navigator.mediaSession.metadata=new MediaMetadata({title:'Dictado de pedido',artist:'Lista de despacho'});
+    navigator.mediaSession.playbackState='playing';
+    // El botón de medios "siguiente" hace EXACTAMENTE lo mismo que ⏭️ Siguiente.
+    navigator.mediaSession.setActionHandler('nexttrack',()=>nextItem(activoListaId));
+  }catch(e){console.warn('MediaSession:',e);}
+}
+function detenerMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  try{
+    navigator.mediaSession.setActionHandler('nexttrack',null);
+    navigator.mediaSession.playbackState='none';
+    if(mediaSilent){mediaSilent.pause();}
+  }catch(e){}
+}
 
 // ════ AUTO AVANCE ════
 // Temporizador independiente del TTS. Sigue corriendo en segundo plano con
