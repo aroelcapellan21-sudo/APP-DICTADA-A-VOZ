@@ -501,6 +501,7 @@ input[type=file]{display:none}
       </div>
       <!-- TEMPORAL (carga única de puntos) — quitar tras usar -->
       <button class="btn bout bfull" id="btn-cargar-puntos" style="margin-top:2px">⭐ Cargar puntos (una vez)</button>
+      <button class="btn bout bfull" id="btn-corregir-2" style="margin-top:2px">🔧 Corregir 2 productos (una vez)</button>
     </div>
   </div>
 </div>
@@ -2739,6 +2740,33 @@ document.getElementById('btn-cargar-puntos').addEventListener('click',()=>{
   txt+=`✅ APLICADAS (${aplic.length}):\n`+(aplic.length?aplic.map(a=>`• ${a.n} → ${a.p} pts`).join('\n'):'(ninguna)');
   txt+=`\n\n❌ NO ENCONTRADAS (${noenc.length}):\n`+(noenc.length?noenc.map(n=>`• ${n.n} (${n.p} pts)`+(n.sug?` — ¿quisiste decir "${n.sug}"?`:'')).join('\n'):'(ninguna)');
   document.getElementById('puntos-rep-txt').value=txt;
+  abrirMov('m-puntos-rep');
+});
+document.getElementById('btn-corregir-2').addEventListener('click',()=>{
+  if(!patron.length){alert('El patrón está vacío.');return;}
+  if(!confirm('Voy a: (1) corregir el nombre del Helado Don Alfonso de pinta y ponerle 47 pts; (2) dejar "MAGNUM BLANCA ALMENDRA 25/1" con 27 pts (borrando cualquier parecido). ¿Continuar?'))return;
+  const log=[];
+  // Tarea 1: Helado Don Alfonso de PINTA (no confundir con la PALETA Choco Crema Don Alfonso).
+  const i1=patron.findIndex(x=>{const n=normNombre(x.nombre);return n.includes('don')&&(n.includes('alfonso')||n.includes('alfonzo'))&&n.includes('pinta');});
+  if(i1>=0){
+    const antes=patron[i1].nombre;
+    patron[i1].nombre='HELADO DON ALFONSO 1 PINTA 6/1';patron[i1].puntos=47;
+    log.push(`✅ Helado Don Alfonso: "${antes}" → "HELADO DON ALFONSO 1 PINTA 6/1" (47 pts)`);
+  }else{
+    log.push('⚠️ No encontré un "Helado Don Alfonso ... pinta" en el Patrón. Revisalo a mano.');
+  }
+  // Tarea 2: Magnum Blanca Almendra estándar. Categoría = la de otro Magnum existente.
+  const magCat=(patron.find(x=>{const n=normNombre(x.nombre);return n.includes('magnum')&&!n.includes('blanca');})||{}).categoria
+            ||(patron.find(x=>normNombre(x.nombre).includes('magnum'))||{}).categoria||'Otros';
+  const borrados=[];
+  for(let i=patron.length-1;i>=0;i--){const n=normNombre(patron[i].nombre);if(n.includes('magnum')&&n.includes('blanca')){borrados.push(patron[i].nombre);patron.splice(i,1);}}
+  const ords=patron.filter(p=>(p.categoria||'Otros')===magCat).map(p=>p.orden||0);
+  patron.push({categoria:magCat,nombre:'MAGNUM BLANCA ALMENDRA 25/1',cantidad:'',puntos:27,orden:ords.length?Math.max(...ords)+1:0});
+  log.push(borrados.length
+    ? `✅ Magnum Blanca Almendra: borrado(s) ${borrados.map(b=>`"${b}"`).join(', ')} → "MAGNUM BLANCA ALMENDRA 25/1" (27 pts, categoría ${magCat})`
+    : `✅ Magnum Blanca Almendra: agregado "MAGNUM BLANCA ALMENDRA 25/1" (27 pts, categoría ${magCat})`);
+  savePat();renderPatron();
+  document.getElementById('puntos-rep-txt').value='CORRECCIÓN DE 2 PRODUCTOS\n\n'+log.join('\n\n');
   abrirMov('m-puntos-rep');
 });
 // ─── fin TEMPORAL ───
