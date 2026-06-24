@@ -274,7 +274,6 @@ input[type=file]{display:none}
 #dict-totales{display:flex;gap:8px;justify-content:center}
 #dict-totales .dt-pill{background:var(--white);border:1px solid var(--border);border-radius:99px;padding:4px 12px;font-size:.74rem;color:var(--muted);box-shadow:var(--shadow)}
 #dict-totales .dt-pill b{color:var(--text);font-size:.84rem}
-.pat-pts-lbl{font-size:.74rem;flex-shrink:0}
 #cur-item{background:var(--white);border:2px solid var(--yellow);border-radius:14px;padding:16px 14px;text-align:center;box-shadow:var(--shadow)}
 #cur-cat{font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--green);font-weight:700;margin-bottom:4px}
 #cur-prod{font-size:1.28rem;font-weight:800;color:var(--red);line-height:1.2;margin-bottom:5px}
@@ -2457,12 +2456,10 @@ function renderPatron(){
         `<span class="pat-grip-row" title="Reordenar dentro de la categoría">⠿</span>`+
         `<span class="pat-grip-move" title="Mover a otra categoría">⇆</span>`+
         `<input class="pn" data-i="${i}" list="dl-pat" data-cat="${esc(cat)}" value="${esc(p.nombre)}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)">`+
-        `<input class="pq" data-i="${i}" value="${esc(p.cantidad)}" placeholder="Cant." style="border:none;outline:none;width:62px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent">`+
+        `<input class="pq" data-i="${i}" type="number" min="0" inputmode="numeric" value="${esc(p.puntos)}" placeholder="⭐ Pts" title="Puntos que genera este producto" style="border:none;outline:none;width:62px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent">`+
         `<button class="pat-del" onclick="delPat(${i})">✕</button></div>`+
         `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:118px"><span style="font-size:.78rem;flex-shrink:0">🔊</span>`+
-        `<input class="pv" data-i="${i}" value="${esc(p.texto_voz)}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic">`+
-        `<span class="pat-pts-lbl" title="Puntos que genera este producto">⭐</span>`+
-        `<input class="pp" data-i="${i}" type="number" min="0" inputmode="numeric" value="${esc(p.puntos)}" placeholder="Pts" style="border:none;outline:none;width:48px;text-align:right;font-size:.74rem;color:var(--text);font-weight:700;background:transparent"></div>`;
+        `<input class="pv" data-i="${i}" value="${esc(p.texto_voz)}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic"></div>`;
       d.querySelector('.pat-grip-row').addEventListener('pointerdown',e=>arrancarArrastre(e,'row',i,cat));
       d.querySelector('.pat-grip-move').addEventListener('pointerdown',e=>arrancarArrastre(e,'move',i,cat));
       grupo.appendChild(d);
@@ -2473,15 +2470,15 @@ function renderPatron(){
   cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].nombre=e.target.value;savePat();}));
   // Al enfocar un nombre del Patrón, el datalist prioriza la categoría de esa fila.
   cont.querySelectorAll('.pn').forEach(el=>engancharAutoProd(el,'dl-pat',()=>el.dataset.cat));
-  cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].cantidad=e.target.value;savePat();}));
+  // Campo .pq reutilizado como PUNTOS (la cantidad del Patrón no se usa: viene de
+  // la factura). Número de puntos que genera el producto; vacío => sin puntos
+  // (cuenta como 0 en el total del dictado). Solo editable aquí (Patrón con clave).
+  cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{
+    const v=e.target.value.trim();patron[+e.target.dataset.i].puntos=(v===''?'':Math.max(0,parseFloat(v)||0));savePat();
+  }));
   // texto_voz (Sección 1): lo escribe el usuario a mano, opcional. Vacío => se
   // lee el nombre crudo. Vive solo en el Patrón; no se sugiere automáticamente.
   cont.querySelectorAll('.pv').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].texto_voz=e.target.value.trim();savePat();}));
-  // Puntos (mejora): número de puntos que genera el producto. Vacío => sin puntos
-  // (cuenta como 0 en el total del dictado). Solo editable aquí (Patrón con clave).
-  cont.querySelectorAll('.pp').forEach(el=>el.addEventListener('blur',e=>{
-    const v=e.target.value.trim();patron[+e.target.dataset.i].puntos=(v===''?'':Math.max(0,parseFloat(v)||0));savePat();
-  }));
 }
 
 // ─── Modelo de ORDEN del Patrón (Sección 1, arquitectura de ordenamiento) ───
