@@ -292,6 +292,10 @@ input[type=file]{display:none}
 .dict3 button .bi{font-size:1.3rem}
 .dict3 button:active{transform:translateY(4px);box-shadow:0 1px 0px rgba(0,0,0,0.25)}
 #btn-prev,#btn-next{background:#2e7d32}
+/* Destello del ⏭️ cuando el comando llega desde el botón de medios (BT/cable):
+   confirma visualmente al despachador que se recibió, como un toque físico. */
+@keyframes flashNext{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(76,175,80,.6)}30%{transform:scale(.93);box-shadow:0 0 0 6px rgba(76,175,80,.35),0 0 16px 5px rgba(129,199,132,.9);filter:brightness(1.55)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(76,175,80,0);filter:none}}
+#btn-next.flash-next{animation:flashNext .45s ease-out}
 #btn-pausa{background:#d32f2f}
 #btn-pausa.paused{background:#757575}
 #aa-estado{text-align:center;font-size:.72rem;font-weight:700;color:#d32f2f}
@@ -2127,6 +2131,15 @@ function stopVoice(){micOn=false;if(recognition){try{recognition.stop();}catch(e
 // no se oye nada). Se arranca al iniciar el dictado y se detiene al salir o
 // completar; minimizar NO lo detiene (el dictado sigue).
 let mediaSilent=null;
+// Destello visual del ⏭️ de pantalla al recibir el comando del botón de medios.
+// Solo presentación: reinicia la animación (remove + reflow + add) para que se
+// vea aunque lleguen comandos seguidos; se autolimpia al terminar.
+function flashBotonSiguiente(){
+  const b=document.getElementById('btn-next');if(!b)return;
+  b.classList.remove('flash-next');void b.offsetWidth;
+  b.classList.add('flash-next');
+  b.addEventListener('animationend',()=>b.classList.remove('flash-next'),{once:true});
+}
 function iniciarMediaSession(){
   if(!('mediaSession' in navigator))return;
   try{
@@ -2138,7 +2151,7 @@ function iniciarMediaSession(){
     navigator.mediaSession.metadata=new MediaMetadata({title:'Dictado de pedido',artist:'Lista de despacho'});
     navigator.mediaSession.playbackState='playing';
     // El botón de medios "siguiente" hace EXACTAMENTE lo mismo que ⏭️ Siguiente.
-    navigator.mediaSession.setActionHandler('nexttrack',()=>nextItem(activoListaId));
+    navigator.mediaSession.setActionHandler('nexttrack',()=>{flashBotonSiguiente();nextItem(activoListaId);});
   }catch(e){console.warn('MediaSession:',e);}
 }
 function detenerMediaSession(){
