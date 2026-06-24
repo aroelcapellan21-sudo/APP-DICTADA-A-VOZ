@@ -270,6 +270,13 @@ input[type=file]{display:none}
 #results-sec{display:flex;flex-direction:column;gap:9px}
 #prog-wrap{background:var(--border);border-radius:99px;height:5px;overflow:hidden}
 #prog-bar{height:100%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green));border-radius:99px;transition:width .4s;width:0%}
+/* Totales del dictado (mejora puntos): productos + puntos de la factura. */
+#dict-totales{display:flex;gap:8px;justify-content:center}
+#dict-totales .dt-pill{background:var(--white);border:1px solid var(--border);border-radius:99px;padding:4px 12px;font-size:.74rem;color:var(--muted);box-shadow:var(--shadow)}
+#dict-totales .dt-pill b{color:var(--text);font-size:.84rem}
+/* Campo de puntos en el Patrón: etiqueta "⭐ Pts" + cuadrito numérico, compacto. */
+.pat-pts{display:inline-flex;align-items:center;gap:4px;flex-shrink:0}
+.pat-pts-lbl{font-size:.7rem;color:var(--muted);white-space:nowrap}
 #cur-item{background:var(--white);border:2px solid var(--yellow);border-radius:14px;padding:16px 14px;text-align:center;box-shadow:var(--shadow)}
 #cur-cat{font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--green);font-weight:700;margin-bottom:4px}
 #cur-prod{font-size:1.28rem;font-weight:800;color:var(--red);line-height:1.2;margin-bottom:5px}
@@ -656,6 +663,7 @@ input[type=file]{display:none}
     </div>
     <div id="results-sec">
       <div id="prog-wrap"><div id="prog-bar"></div></div>
+      <div id="dict-totales"><span class="dt-pill">📦 <b id="tot-prods">0</b> productos</span><span class="dt-pill">⭐ <b id="tot-puntos">0</b> puntos</span></div>
       <div id="cur-item">
         <div id="cur-cat">—</div><div id="cur-prod">—</div>
         <div id="cur-qty">—</div><div id="cur-count">—</div>
@@ -966,6 +974,23 @@ function categoriaDesdePatron(nombre){
 function enPatron(nombre){
   const n=normNombre(nombre);if(!n)return false;
   return patron.some(x=>normNombre(x.nombre)===n);
+}
+// Puntos que genera un producto, según el Patrón (mismo macheo normalizado). Si
+// no está en el Patrón o no tiene puntos definidos => 0.
+function puntosDe(it){
+  const n=normNombre(it&&it.nombre);if(!n)return 0;
+  const p=patron.find(x=>normNombre(x.nombre)===n);
+  const v=p?parseFloat(p.puntos):NaN;
+  return isFinite(v)?v:0;
+}
+// Cantidad NUMÉRICA para multiplicar por puntos. Código de empaque (con "/", ej.
+// 24/1) cuenta como 1; vacío/no numérico => 0; número limpio => su valor.
+function cantNumero(c){
+  c=String(c==null?'':c).trim();
+  if(!c)return 0;
+  if(c.includes('/'))return 1;
+  const m=c.match(/\d+(?:[.,]\d+)?/);
+  return m?parseFloat(m[0].replace(',','.')):0;
 }
 // Devuelve una COPIA de 'items' en el orden de lectura del Patrón VIGENTE:
 // recorre patronOrdenado() (categoría, orden) y empareja por nombre normalizado;
@@ -1855,6 +1880,15 @@ function renderItemList(items){
     r.innerHTML=`<span class="inum">${idx+1}</span><div class="ichk"></div><span class="iname">${p.nombre}</span>${falta}<span class="iqty">${p.cantidad}</span>`+(p._uid?`<button class="nov-btn${tieneNovedades(p)?' on':''}" onclick="event.stopPropagation();abrirNovedad('${p._uid}')" title="Novedades">🆕</button>`:'');
     list.appendChild(r);
   });
+  actualizarTotalesDictado(items);
+}
+// Totales del dictado: cantidad de productos y suma de puntos (puntos del Patrón ×
+// cantidad de cada producto; sin puntos => 0). Solo presentación.
+function actualizarTotalesDictado(items){
+  items=items||[];
+  const tp=document.getElementById('tot-prods');if(tp)tp.textContent=items.length;
+  const pts=items.reduce((s,it)=>s+puntosDe(it)*cantNumero(it.cantidad),0);
+  const tpt=document.getElementById('tot-puntos');if(tpt)tpt.textContent=(Math.round(pts*100)/100);
 }
 
 function iniciarDictado(listaId){
@@ -2425,7 +2459,7 @@ function renderPatron(){
         `<span class="pat-grip-row" title="Reordenar dentro de la categoría">⠿</span>`+
         `<span class="pat-grip-move" title="Mover a otra categoría">⇆</span>`+
         `<input class="pn" data-i="${i}" list="dl-pat" data-cat="${esc(cat)}" value="${esc(p.nombre)}" style="border:none;outline:none;flex:1;font-size:.82rem;background:transparent;color:var(--text)">`+
-        `<input class="pq" data-i="${i}" value="${esc(p.cantidad)}" placeholder="Cant." style="border:none;outline:none;width:62px;text-align:right;font-size:.74rem;color:var(--red);font-weight:700;background:transparent">`+
+        `<span class="pat-pts" title="Puntos que genera este producto"><span class="pat-pts-lbl">⭐ Pts</span><input class="pq" data-i="${i}" type="number" min="0" inputmode="numeric" value="${esc(p.puntos)}" placeholder="0" style="width:44px;text-align:center;border:1px solid var(--border);border-radius:7px;outline:none;font-size:.74rem;color:var(--red);font-weight:700;background:var(--white);padding:3px 2px"></span>`+
         `<button class="pat-del" onclick="delPat(${i})">✕</button></div>`+
         `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-left:118px"><span style="font-size:.78rem;flex-shrink:0">🔊</span>`+
         `<input class="pv" data-i="${i}" value="${esc(p.texto_voz)}" placeholder="¿Cómo quieres escucharlo? Ej: Chocolate" style="border:none;outline:none;flex:1;font-size:.76rem;background:transparent;color:var(--text);font-style:italic"></div>`;
@@ -2439,7 +2473,12 @@ function renderPatron(){
   cont.querySelectorAll('.pn').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].nombre=e.target.value;savePat();}));
   // Al enfocar un nombre del Patrón, el datalist prioriza la categoría de esa fila.
   cont.querySelectorAll('.pn').forEach(el=>engancharAutoProd(el,'dl-pat',()=>el.dataset.cat));
-  cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].cantidad=e.target.value;savePat();}));
+  // Campo .pq reutilizado como PUNTOS (la cantidad del Patrón no se usa: viene de
+  // la factura). Número de puntos que genera el producto; vacío => sin puntos
+  // (cuenta como 0 en el total del dictado). Solo editable aquí (Patrón con clave).
+  cont.querySelectorAll('.pq').forEach(el=>el.addEventListener('blur',e=>{
+    const v=e.target.value.trim();patron[+e.target.dataset.i].puntos=(v===''?'':Math.max(0,parseFloat(v)||0));savePat();
+  }));
   // texto_voz (Sección 1): lo escribe el usuario a mano, opcional. Vacío => se
   // lee el nombre crudo. Vive solo en el Patrón; no se sugiere automáticamente.
   cont.querySelectorAll('.pv').forEach(el=>el.addEventListener('blur',e=>{patron[+e.target.dataset.i].texto_voz=e.target.value.trim();savePat();}));
