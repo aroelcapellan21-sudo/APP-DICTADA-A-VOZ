@@ -292,6 +292,10 @@ input[type=file]{display:none}
 .dict3 button .bi{font-size:1.3rem}
 .dict3 button:active{transform:translateY(4px);box-shadow:0 1px 0px rgba(0,0,0,0.25)}
 #btn-prev,#btn-next{background:#2e7d32}
+/* Destello del ⏭️ cuando el comando llega desde el botón de medios (BT/cable):
+   confirma visualmente al despachador que se recibió, como un toque físico. */
+@keyframes flashNext{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(76,175,80,.6)}30%{transform:scale(.93);box-shadow:0 0 0 6px rgba(76,175,80,.35),0 0 16px 5px rgba(129,199,132,.9);filter:brightness(1.55)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(76,175,80,0);filter:none}}
+#btn-next.flash-next{animation:flashNext .45s ease-out}
 #btn-pausa{background:#d32f2f}
 #btn-pausa.paused{background:#757575}
 #aa-estado{text-align:center;font-size:.72rem;font-weight:700;color:#d32f2f}
@@ -653,6 +657,9 @@ input[type=file]{display:none}
 
 <!-- MODAL: DICTADO -->
 <div class="mov" id="m-dictado">
+  <!-- Audio silencioso en loop: solo sostiene la Media Session para que el SO
+       entregue el botón ⏭️ de auriculares/manos libres BT o cable. No se oye. -->
+  <audio id="audio-silencio" loop preload="auto" playsinline></audio>
   <div class="msh">
     <button id="btn-min-dictado" title="Minimizar (el dictado sigue)">▽</button>
     <button id="btn-nota-dictado" title="Nota del despacho">📝</button>
@@ -772,6 +779,8 @@ const CONFIG_LECTURA = Object.assign(
 function saveCfgLectura(){ localStorage.setItem('bon_cfg_lectura', JSON.stringify(CONFIG_LECTURA)); }
 let manItems=[],aaEnabled=true,aaSecs=5,aaInterval=null,aaRem=0,micOn=false,paused=false;
 let chFotoUrl=null,dragSrc=null,activoListaId=null,addProdTarget=null;
+// WAV silencioso (0.2s, loop) que sostiene la Media Session del dictado.
+const SILENCIO_WAV='data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
 let pendingGuardar=false;
 
 let choferes=JSON.parse(localStorage.getItem('bon_ch')||'[]');
@@ -1859,7 +1868,7 @@ document.getElementById('btn-nota-dictado').addEventListener('click',e=>{
 
 document.getElementById('btn-cerrar-dictado').addEventListener('click',()=>{
   cerrarMov('m-dictado');ocultarFabDictado();
-  stopVoice();clearAA();
+  stopVoice();clearAA();detenerMediaSession();
   navTo('despacho',document.querySelectorAll('.mnav button')[1]);
   renderDespacho();
 });
@@ -1904,7 +1913,7 @@ function iniciarDictado(listaId){
   document.getElementById('results-sec').style.display='flex';
   document.getElementById('aa-lbl').textContent=aaSecs+'s';
   updPausaBtn();updAAEstado();
-  startVoice();nextItem(listaId);
+  startVoice();iniciarMediaSession();nextItem(listaId);
 }
 
 // Avanza al siguiente producto. El TTS (speakCur) y el temporizador de
@@ -1971,7 +1980,7 @@ function markUndone(i){
   });
 }
 function finalizarDictado(listaId){
-  clearAA();stopVoice();
+  clearAA();stopVoice();detenerMediaSession();
   const l=listas.find(x=>x.id==listaId);
   if(l){l.escuchada=true;saveListas();}
   document.getElementById('prog-bar').style.width='100%';
@@ -2110,6 +2119,49 @@ function startVoice(){
   try{recognition.start();}catch(e){}
 }
 function stopVoice(){micOn=false;if(recognition){try{recognition.stop();}catch(e){}}recognition=null;document.getElementById('mic-ind').classList.remove('on');}
+
+// ════ MEDIA SESSION (botón ⏭️ de auriculares/manos libres BT o cable) ════
+// Mapea el botón "siguiente pista" (nexttrack) de CUALQUIER dispositivo con
+// controles de medios al MISMO nextItem() del dictado — genérico, sin marca ni
+// modelo. Es ADITIVO y con degradación elegante: si la API no existe, no hay
+// dispositivo, o el dispositivo no manda nexttrack, la app funciona igual que
+// siempre (el ⏭️ de pantalla y los comandos de voz quedan intactos).
+// La Media Session necesita "media activa" para que el SO entregue el evento,
+// así que mientras dura el dictado suena #audio-silencio en loop (volumen 0;
+// no se oye nada). Se arranca al iniciar el dictado y se detiene al salir o
+// completar; minimizar NO lo detiene (el dictado sigue).
+let mediaSilent=null;
+// Destello visual del ⏭️ de pantalla al recibir el comando del botón de medios.
+// Solo presentación: reinicia la animación (remove + reflow + add) para que se
+// vea aunque lleguen comandos seguidos; se autolimpia al terminar.
+function flashBotonSiguiente(){
+  const b=document.getElementById('btn-next');if(!b)return;
+  b.classList.remove('flash-next');void b.offsetWidth;
+  b.classList.add('flash-next');
+  b.addEventListener('animationend',()=>b.classList.remove('flash-next'),{once:true});
+}
+function iniciarMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  try{
+    if(!mediaSilent){
+      mediaSilent=document.getElementById('audio-silencio');
+      if(mediaSilent&&!mediaSilent.src)mediaSilent.src=SILENCIO_WAV;
+    }
+    if(mediaSilent){mediaSilent.loop=true;mediaSilent.volume=0;const p=mediaSilent.play();if(p&&p.catch)p.catch(()=>{});}
+    navigator.mediaSession.metadata=new MediaMetadata({title:'Dictado de pedido',artist:'Lista de despacho'});
+    navigator.mediaSession.playbackState='playing';
+    // El botón de medios "siguiente" hace EXACTAMENTE lo mismo que ⏭️ Siguiente.
+    navigator.mediaSession.setActionHandler('nexttrack',()=>{flashBotonSiguiente();nextItem(activoListaId);});
+  }catch(e){console.warn('MediaSession:',e);}
+}
+function detenerMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  try{
+    navigator.mediaSession.setActionHandler('nexttrack',null);
+    navigator.mediaSession.playbackState='none';
+    if(mediaSilent){mediaSilent.pause();}
+  }catch(e){}
+}
 
 // ════ AUTO AVANCE ════
 // Temporizador independiente del TTS. Sigue corriendo en segundo plano con
