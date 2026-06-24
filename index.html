@@ -499,6 +499,8 @@ input[type=file]{display:none}
         <button class="btn bout" id="btn-pat-clear">🗑 Limpiar todo</button>
         <button class="btn bred" id="btn-pat-usar">▶ Usar ahora</button>
       </div>
+      <!-- TEMPORAL (carga única de puntos) — quitar tras usar -->
+      <button class="btn bout bfull" id="btn-cargar-puntos" style="margin-top:2px">⭐ Cargar puntos (una vez)</button>
     </div>
   </div>
 </div>
@@ -631,6 +633,13 @@ input[type=file]{display:none}
   </div>
   <div id="novt-body" style="max-height:55vh;overflow:auto"></div>
   <button class="btn bout bfull" style="margin-top:8px" onclick="cerrarMov('m-nov-tabla')">Cerrar</button>
+</div></div>
+
+<!-- MODAL TEMPORAL: REPORTE DE CARGA DE PUNTOS (carga única) — quitar tras usar -->
+<div class="mov" id="m-puntos-rep"><div class="msh">
+  <div class="mhdl"></div><div class="mtit">⭐ Reporte de carga de puntos</div>
+  <textarea id="puntos-rep-txt" class="inp" rows="13" readonly style="font-size:.72rem;font-family:monospace;line-height:1.5;resize:vertical;white-space:pre"></textarea>
+  <button class="btn bout bfull" style="margin-top:8px" onclick="cerrarMov('m-puntos-rep')">Cerrar</button>
 </div></div>
 
 <!-- MODAL: AGREGAR AL REPORTE DEL DÍA (Mejora H, Parte B) -->
@@ -2683,6 +2692,56 @@ document.getElementById('btn-pat-usar').addEventListener('click',()=>{
   document.getElementById('lista-nom-inp').value=nombreFecha();
   navTo('inicio',document.querySelector('.mnav button'));
 });
+
+// ─── TEMPORAL: carga única de puntos al Patrón — quitar tras usar ───
+const PUNTOS_CARGA=[
+  {n:'PALETA CHOCO MANI 32/1',p:12},{n:'PALETA CHOCO CREMA 32/1',p:12},{n:'PALETA CHOCO CHOCO 32/1',p:12},
+  {n:'PALETA DE FRAMBUESA 36/1',p:4},{n:'PALETA DE UVA 36/1',p:4},
+  {n:'PALETA NATURAL DE COCO 24/1',p:10},{n:'PALETA NATURAL DE FRESA 24/1',p:10},{n:'PALETA NATURAL DE CHINOLA 24/1',p:10},
+  {n:'PALETA FUDGE BIZCOCHO 24/1',p:6},{n:'PALETA FUDGE CHOCOLATE 24/1',p:6},
+  {n:'COPA FRESA 16/1',p:18},{n:'PALETA CHINOLA CREMA 24/1',p:10},{n:'PALETA FRESA CREMA 24/1',p:10},
+  {n:'LENGUILETTA FRUTOS ROJOS 24/1',p:6},
+  {n:'HELADO FRESA C-3.5 ONZ CAJA 24/1',p:10},{n:'HELADO CHOCOLATE C-3.5 ONZ CAJA 24/1',p:10},{n:'HELADO VAINILLA C-3.5 ONZ CAJA 24/1',p:10},
+  {n:'MORDISKO CLASICO 24/1',p:15},{n:'SANDWICH BON VAINILLA 24/1',p:13},
+  {n:'MAGNUM ALMENDRAS 25/1',p:27},{n:'MAGNUM CLASICO 25/1',p:27},
+  {n:'HELADO DE CHOCOLATE 1 PINTA 6/1',p:35},{n:'HELADO DE BIZCOCHO 1 PINTA 6/1',p:35},{n:'HELADO DE FRESA 1 PINTA 6/1',p:35},
+  {n:'HELADO DE VAINILLA 1 PINTA 6/1',p:35},{n:'HELADO DE RON PASA 1 PINTA 6/1',p:35},
+  {n:'PALETA DE AGUA MANZANA 36/1',p:4},{n:'PALETA DE AGUA CHERRY 36/1',p:4},
+  {n:'MAGNUM BLANCA ALMENDRA 25/1',p:27},{n:'PALETA CHOCO CREMA DON ALFONSO 32/1',p:15},{n:'HELADO DON ALFONSO 1 PINTA 6/1',p:47},
+];
+// Sugerencia (solo para el reporte, NO se aplica): producto del Patrón con más
+// palabras en común (Jaccard de tokens normalizados) por encima de un umbral.
+function sugerenciaCercanaPuntos(nombre){
+  const a=new Set(normNombre(nombre).split(' ').filter(Boolean));
+  let best='',bestScore=0;
+  patron.forEach(x=>{
+    const b=new Set(normNombre(x.nombre).split(' ').filter(Boolean));
+    const inter=[...a].filter(t=>b.has(t)).length;
+    const uni=new Set([...a,...b]).size;
+    const s=uni?inter/uni:0;
+    if(s>bestScore){bestScore=s;best=x.nombre;}
+  });
+  return bestScore>=0.34?best:'';
+}
+document.getElementById('btn-cargar-puntos').addEventListener('click',()=>{
+  if(!patron.length){alert('El patrón está vacío.');return;}
+  if(!confirm('Se asignarán los puntos a los productos del Patrón que coincidan EXACTO por nombre. Los que no coincidan NO se tocan (solo se listan). ¿Continuar?'))return;
+  const idx=new Map();
+  patron.forEach((x,i)=>{const k=normNombre(x.nombre);if(k&&!idx.has(k))idx.set(k,i);});
+  const aplic=[],noenc=[];
+  PUNTOS_CARGA.forEach(e=>{
+    const k=normNombre(e.n);
+    if(idx.has(k)){const i=idx.get(k);patron[i].puntos=e.p;aplic.push(e);}
+    else{noenc.push({...e,sug:sugerenciaCercanaPuntos(e.n)});}
+  });
+  savePat();renderPatron();
+  let txt=`CARGA DE PUNTOS — ${aplic.length}/${PUNTOS_CARGA.length} aplicadas\n\n`;
+  txt+=`✅ APLICADAS (${aplic.length}):\n`+(aplic.length?aplic.map(a=>`• ${a.n} → ${a.p} pts`).join('\n'):'(ninguna)');
+  txt+=`\n\n❌ NO ENCONTRADAS (${noenc.length}):\n`+(noenc.length?noenc.map(n=>`• ${n.n} (${n.p} pts)`+(n.sug?` — ¿quisiste decir "${n.sug}"?`:'')).join('\n'):'(ninguna)');
+  document.getElementById('puntos-rep-txt').value=txt;
+  abrirMov('m-puntos-rep');
+});
+// ─── fin TEMPORAL ───
 
 // ════ AJUSTES ════
 document.getElementById('aj-prov').addEventListener('change',function(){
