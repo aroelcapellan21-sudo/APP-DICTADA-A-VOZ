@@ -499,9 +499,6 @@ input[type=file]{display:none}
         <button class="btn bout" id="btn-pat-clear">🗑 Limpiar todo</button>
         <button class="btn bred" id="btn-pat-usar">▶ Usar ahora</button>
       </div>
-      <!-- TEMPORAL (carga única de puntos) — quitar tras usar -->
-      <button class="btn bout bfull" id="btn-cargar-puntos" style="margin-top:2px">⭐ Cargar puntos (una vez)</button>
-      <button class="btn bout bfull" id="btn-corregir-2" style="margin-top:2px">🔧 Corregir 2 productos (una vez)</button>
     </div>
   </div>
 </div>
@@ -634,13 +631,6 @@ input[type=file]{display:none}
   </div>
   <div id="novt-body" style="max-height:55vh;overflow:auto"></div>
   <button class="btn bout bfull" style="margin-top:8px" onclick="cerrarMov('m-nov-tabla')">Cerrar</button>
-</div></div>
-
-<!-- MODAL TEMPORAL: REPORTE DE CARGA DE PUNTOS (carga única) — quitar tras usar -->
-<div class="mov" id="m-puntos-rep"><div class="msh">
-  <div class="mhdl"></div><div class="mtit">⭐ Reporte de carga de puntos</div>
-  <textarea id="puntos-rep-txt" class="inp" rows="13" readonly style="font-size:.72rem;font-family:monospace;line-height:1.5;resize:vertical;white-space:pre"></textarea>
-  <button class="btn bout bfull" style="margin-top:8px" onclick="cerrarMov('m-puntos-rep')">Cerrar</button>
 </div></div>
 
 <!-- MODAL: AGREGAR AL REPORTE DEL DÍA (Mejora H, Parte B) -->
@@ -2693,83 +2683,6 @@ document.getElementById('btn-pat-usar').addEventListener('click',()=>{
   document.getElementById('lista-nom-inp').value=nombreFecha();
   navTo('inicio',document.querySelector('.mnav button'));
 });
-
-// ─── TEMPORAL: carga única de puntos al Patrón — quitar tras usar ───
-const PUNTOS_CARGA=[
-  {n:'PALETA CHOCO MANI 32/1',p:12},{n:'PALETA CHOCO CREMA 32/1',p:12},{n:'PALETA CHOCO CHOCO 32/1',p:12},
-  {n:'PALETA DE FRAMBUESA 36/1',p:4},{n:'PALETA DE UVA 36/1',p:4},
-  {n:'PALETA NATURAL DE COCO 24/1',p:10},{n:'PALETA NATURAL DE FRESA 24/1',p:10},{n:'PALETA NATURAL DE CHINOLA 24/1',p:10},
-  {n:'PALETA FUDGE BIZCOCHO 24/1',p:6},{n:'PALETA FUDGE CHOCOLATE 24/1',p:6},
-  {n:'COPA FRESA 16/1',p:18},{n:'PALETA CHINOLA CREMA 24/1',p:10},{n:'PALETA FRESA CREMA 24/1',p:10},
-  {n:'LENGUILETTA FRUTOS ROJOS 24/1',p:6},
-  {n:'HELADO FRESA C-3.5 ONZ CAJA 24/1',p:10},{n:'HELADO CHOCOLATE C-3.5 ONZ CAJA 24/1',p:10},{n:'HELADO VAINILLA C-3.5 ONZ CAJA 24/1',p:10},
-  {n:'MORDISKO CLASICO 24/1',p:15},{n:'SANDWICH BON VAINILLA 24/1',p:13},
-  {n:'MAGNUM ALMENDRAS 25/1',p:27},{n:'MAGNUM CLASICO 25/1',p:27},
-  {n:'HELADO DE CHOCOLATE 1 PINTA 6/1',p:35},{n:'HELADO DE BIZCOCHO 1 PINTA 6/1',p:35},{n:'HELADO DE FRESA 1 PINTA 6/1',p:35},
-  {n:'HELADO DE VAINILLA 1 PINTA 6/1',p:35},{n:'HELADO DE RON PASA 1 PINTA 6/1',p:35},
-  {n:'PALETA DE AGUA MANZANA 36/1',p:4},{n:'PALETA DE AGUA CHERRY 36/1',p:4},
-  {n:'MAGNUM BLANCA ALMENDRA 25/1',p:27},{n:'PALETA CHOCO CREMA DON ALFONSO 32/1',p:15},{n:'HELADO DON ALFONSO 1 PINTA 6/1',p:47},
-];
-// Sugerencia (solo para el reporte, NO se aplica): producto del Patrón con más
-// palabras en común (Jaccard de tokens normalizados) por encima de un umbral.
-function sugerenciaCercanaPuntos(nombre){
-  const a=new Set(normNombre(nombre).split(' ').filter(Boolean));
-  let best='',bestScore=0;
-  patron.forEach(x=>{
-    const b=new Set(normNombre(x.nombre).split(' ').filter(Boolean));
-    const inter=[...a].filter(t=>b.has(t)).length;
-    const uni=new Set([...a,...b]).size;
-    const s=uni?inter/uni:0;
-    if(s>bestScore){bestScore=s;best=x.nombre;}
-  });
-  return bestScore>=0.34?best:'';
-}
-document.getElementById('btn-cargar-puntos').addEventListener('click',()=>{
-  if(!patron.length){alert('El patrón está vacío.');return;}
-  if(!confirm('Se asignarán los puntos a los productos del Patrón que coincidan EXACTO por nombre. Los que no coincidan NO se tocan (solo se listan). ¿Continuar?'))return;
-  const idx=new Map();
-  patron.forEach((x,i)=>{const k=normNombre(x.nombre);if(k&&!idx.has(k))idx.set(k,i);});
-  const aplic=[],noenc=[];
-  PUNTOS_CARGA.forEach(e=>{
-    const k=normNombre(e.n);
-    if(idx.has(k)){const i=idx.get(k);patron[i].puntos=e.p;aplic.push(e);}
-    else{noenc.push({...e,sug:sugerenciaCercanaPuntos(e.n)});}
-  });
-  savePat();renderPatron();
-  let txt=`CARGA DE PUNTOS — ${aplic.length}/${PUNTOS_CARGA.length} aplicadas\n\n`;
-  txt+=`✅ APLICADAS (${aplic.length}):\n`+(aplic.length?aplic.map(a=>`• ${a.n} → ${a.p} pts`).join('\n'):'(ninguna)');
-  txt+=`\n\n❌ NO ENCONTRADAS (${noenc.length}):\n`+(noenc.length?noenc.map(n=>`• ${n.n} (${n.p} pts)`+(n.sug?` — ¿quisiste decir "${n.sug}"?`:'')).join('\n'):'(ninguna)');
-  document.getElementById('puntos-rep-txt').value=txt;
-  abrirMov('m-puntos-rep');
-});
-document.getElementById('btn-corregir-2').addEventListener('click',()=>{
-  if(!patron.length){alert('El patrón está vacío.');return;}
-  if(!confirm('Voy a: (1) corregir el nombre del Helado Don Alfonso de pinta y ponerle 47 pts; (2) dejar "MAGNUM BLANCA ALMENDRA 25/1" con 27 pts (borrando cualquier parecido). ¿Continuar?'))return;
-  const log=[];
-  // Tarea 1: Helado Don Alfonso de PINTA (no confundir con la PALETA Choco Crema Don Alfonso).
-  const i1=patron.findIndex(x=>{const n=normNombre(x.nombre);return n.includes('don')&&(n.includes('alfonso')||n.includes('alfonzo'))&&n.includes('pinta');});
-  if(i1>=0){
-    const antes=patron[i1].nombre;
-    patron[i1].nombre='HELADO DON ALFONSO 1 PINTA 6/1';patron[i1].puntos=47;
-    log.push(`✅ Helado Don Alfonso: "${antes}" → "HELADO DON ALFONSO 1 PINTA 6/1" (47 pts)`);
-  }else{
-    log.push('⚠️ No encontré un "Helado Don Alfonso ... pinta" en el Patrón. Revisalo a mano.');
-  }
-  // Tarea 2: Magnum Blanca Almendra estándar. Categoría = la de otro Magnum existente.
-  const magCat=(patron.find(x=>{const n=normNombre(x.nombre);return n.includes('magnum')&&!n.includes('blanca');})||{}).categoria
-            ||(patron.find(x=>normNombre(x.nombre).includes('magnum'))||{}).categoria||'Otros';
-  const borrados=[];
-  for(let i=patron.length-1;i>=0;i--){const n=normNombre(patron[i].nombre);if(n.includes('magnum')&&n.includes('blanca')){borrados.push(patron[i].nombre);patron.splice(i,1);}}
-  const ords=patron.filter(p=>(p.categoria||'Otros')===magCat).map(p=>p.orden||0);
-  patron.push({categoria:magCat,nombre:'MAGNUM BLANCA ALMENDRA 25/1',cantidad:'',puntos:27,orden:ords.length?Math.max(...ords)+1:0});
-  log.push(borrados.length
-    ? `✅ Magnum Blanca Almendra: borrado(s) ${borrados.map(b=>`"${b}"`).join(', ')} → "MAGNUM BLANCA ALMENDRA 25/1" (27 pts, categoría ${magCat})`
-    : `✅ Magnum Blanca Almendra: agregado "MAGNUM BLANCA ALMENDRA 25/1" (27 pts, categoría ${magCat})`);
-  savePat();renderPatron();
-  document.getElementById('puntos-rep-txt').value='CORRECCIÓN DE 2 PRODUCTOS\n\n'+log.join('\n\n');
-  abrirMov('m-puntos-rep');
-});
-// ─── fin TEMPORAL ───
 
 // ════ AJUSTES ════
 document.getElementById('aj-prov').addEventListener('change',function(){
