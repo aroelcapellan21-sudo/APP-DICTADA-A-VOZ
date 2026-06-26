@@ -1,13 +1,14 @@
-// Service Worker — estrategia network-first para el app-shell.
+// Service Worker — estrategia cache-first (stale-while-revalidate) para el app-shell.
 //
 // Toda la app vive dentro de index.html (un único documento con el JS inline),
-// así que basta con que las NAVEGACIONES siempre intenten la red primero: cada
-// deploy se ve al instante online y la PWA sigue funcionando offline cayendo al
-// caché. No hace falta subir un número de versión a mano en cada deploy.
+// así que las NAVEGACIONES responden al instante desde el caché y refrescan en
+// segundo plano: la PWA abre casi instantáneo (online u offline) y el próximo
+// arranque ya trae la versión nueva. No hace falta subir un número de versión a
+// mano en cada deploy.
 //
 // Al cambiar la lógica del SW sí conviene subir CACHE (bon-v3 -> bon-v4) para
 // que el navegador detecte el SW nuevo y 'activate' purgue los cachés viejos.
-const CACHE = 'bon-v3';
+const CACHE = 'bon-v4';
 const URL_APP = '/';
 
 self.addEventListener('install', e => {
@@ -36,17 +37,21 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // NAVEGACIONES (el app-shell / HTML): network-first.
-  // Siempre traemos la versión fresca; si no hay red, caemos al caché.
+  // NAVEGACIONES (el app-shell / HTML): cache-first (stale-while-revalidate).
+  // Respondemos al instante desde el caché si existe y refrescamos en segundo
+  // plano; solo la primerísima carga sin caché espera la red.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(resp => {
-        if (resp && resp.status === 200) {
-          const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(URL_APP, clone));
-        }
-        return resp;
-      }).catch(() => caches.match(URL_APP).then(c => c || caches.match(req)))
+      caches.match(URL_APP).then(cached => {
+        const fresh = fetch(req).then(resp => {
+          if (resp && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE).then(c => c.put(URL_APP, clone));
+          }
+          return resp;
+        }).catch(() => cached);
+        return cached || fresh;
+      })
     );
     return;
   }
