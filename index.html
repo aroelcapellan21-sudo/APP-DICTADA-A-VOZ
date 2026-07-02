@@ -465,6 +465,7 @@ input[type=file]{display:none}
 <div class="page" id="page-choferes">
   <div class="card">
     <div class="card-hd">Choferes registrados
+      <button class="btn bout" style="padding:4px 10px;font-size:.72rem;flex-direction:row;gap:3px" onclick="sincronizarEcosistema(true)">🔄 Sincronizar</button>
       <button class="btn bred" style="padding:4px 10px;font-size:.72rem;flex-direction:row;gap:3px" onclick="abrirModalChofer()">+ Nuevo</button>
     </div>
     <div class="card-bd" style="padding:9px 10px"><div class="ch-grid" id="ch-grid"></div></div>
@@ -724,6 +725,28 @@ input[type=file]{display:none}
   <div class="fld"><label>Nombre</label><input type="text" id="ch-nom-inp" class="inp" placeholder="Ej: Juan Pérez" autocomplete="off"></div>
   <div class="fld"><label>Ficha / Código</label><input type="text" id="ch-fic-inp" class="inp" placeholder="Ej: CH-001" autocomplete="off"></div>
   <div class="g2"><button class="btn bout" onclick="cerrarMov('m-chofer')">Cancelar</button><button class="btn bred" id="btn-save-ch">Guardar</button></div>
+</div></div>
+
+<!-- MODAL: PERFIL DEL CHOFER — 3 tabs (Despachadas / Reportadas / Reportes de la noche) -->
+<div class="mov" id="m-chofer-perfil"><div class="msh">
+  <div class="mhdl"></div>
+  <div id="cp-header" style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+    <div id="cp-ava" style="width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:white;flex-shrink:0;overflow:hidden"></div>
+    <div style="flex:1">
+      <div id="cp-nom" style="font-size:.98rem;font-weight:800;color:var(--text)"></div>
+      <div id="cp-fic" style="font-size:.72rem;color:var(--muted)"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:4px;margin-bottom:8px">
+    <button class="btn bred cp-tab" data-tab="desp" onclick="cambiarTabPerfil('desp')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">🚚<span>Despachadas</span></button>
+    <button class="btn bout cp-tab" data-tab="rep" onclick="cambiarTabPerfil('rep')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">📤<span>Reportadas</span></button>
+    <button class="btn bout cp-tab" data-tab="noche" onclick="cambiarTabPerfil('noche')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">🌙<span>Reportes</span></button>
+  </div>
+  <div id="cp-body" style="max-height:52vh;overflow-y:auto"></div>
+  <div class="g2" style="margin-top:8px">
+    <button class="btn bout" onclick="cerrarMov('m-chofer-perfil')">Cerrar</button>
+    <button class="btn bblue bfull" onclick="sincronizarEcosistema(true)"><span class="bi">🔄</span>Actualizar</button>
+  </div>
 </div></div>
 
 <!-- MODAL: MANUAL -->
@@ -1056,6 +1079,9 @@ window.addEventListener('load',()=>{
   renderChoferes();renderHistorial();renderPatron();renderCatalogo();
   renderCategorias();poblarAjCat();
   poblarSelCh();poblarManCat();poblarApCat();setupPWA();setupInstall();
+  // Importación automática al abrir (silenciosa): trae reportes/despachos y crea
+  // las facturas del día siguiente. No bloquea el arranque; falla en silencio sin señal.
+  sincronizarEcosistema(false);
 });
 
 // ════ NAV ════
@@ -2237,7 +2263,7 @@ function renderChoferes(){
     const ld=listaDeHoyDeChofer(c.id);   // lista de hoy → tarjeta "llena" y clicable
     const div=document.createElement('div');div.className='ch-card'+(ld?' lleno':'');
     const avaHTML=c.foto?`<div class="ch-ava"><img src="${c.foto}"></div>`:`<div class="ch-ava" style="background:${strColor(c.nombre)}">${iniciales(c.nombre)}</div>`;
-    div.innerHTML=`<button class="ch-edit" onclick="abrirModalChofer('${c.id}',event)">✏️</button><button class="ch-edit" style="left:7px;right:auto;color:#d32f2f" onclick="borrarChofer('${c.id}',event)">🗑</button>${avaHTML}<div class="ch-nom">${c.nombre}</div><div class="ch-fic">${c.ficha}</div>`;
+    div.innerHTML=`<button class="ch-edit" onclick="abrirModalChofer('${c.id}',event)">✏️</button><button class="ch-edit" style="left:7px;right:auto;color:#d32f2f" onclick="borrarChofer('${c.id}',event)">🗑</button><button class="ch-edit" style="top:auto;bottom:7px;right:7px;color:var(--blue)" onclick="abrirPerfilChofer('${c.id}',event)">📊</button>${avaHTML}<div class="ch-nom">${c.nombre}</div><div class="ch-fic">${c.ficha}</div>`;
     if(ld)div.addEventListener('click',()=>abrirPanelLista(ld.id));
     grid.appendChild(div);
   });
@@ -2297,6 +2323,162 @@ document.getElementById('btn-save-ch').addEventListener('click',()=>{
   localStorage.setItem('bon_ch',JSON.stringify(choferes));
   cerrarMov('m-chofer');renderChoferes();
 });
+
+// ════ SINCRONIZACIÓN CON EL ECOSISTEMA (read-only vía Firebase) ════
+// BON LEE (nunca escribe) los reportes del chofer (reportes_chofer) y los
+// despachos del Hub (talonario) a través de su propio backend con service
+// account. Con lo VENDIDO arma la "factura del día siguiente" (decisión #1) y
+// alimenta los 3 tabs del perfil. Todo se cachea en localStorage → offline-first
+// (Regla 2): sin señal se muestra lo último sincronizado y no se pierde nada.
+function cpEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// Trae ambas fuentes, cachea y dispara la auto-importación. `aviso`=true muestra
+// alertas (botón manual); false = silencioso (al abrir la app).
+async function sincronizarEcosistema(aviso){
+  try{
+    const [r1,r2]=await Promise.all([
+      fetch('/api/reportes-chofer').then(x=>x.ok?x.json():null).catch(()=>null),
+      fetch('/api/despachos-chofer').then(x=>x.ok?x.json():null).catch(()=>null),
+    ]);
+    if(r1&&Array.isArray(r1.reportes))localStorage.setItem('bon_sync_reportes',JSON.stringify(r1.reportes));
+    if(r2&&Array.isArray(r2.despachos))localStorage.setItem('bon_sync_despachos',JSON.stringify(r2.despachos));
+    const nuevas=importarReportesComoFacturas();
+    // Si el perfil está abierto, refresca el tab visible con lo recién traído.
+    if(document.getElementById('m-chofer-perfil').classList.contains('open')&&cpChoferActual)cambiarTabPerfil(cpTabActual);
+    if(aviso)alert(nuevas>0?`✅ ${nuevas} factura(s) nueva(s) importada(s).`:'✅ Sincronizado. Sin facturas nuevas.');
+  }catch(e){
+    if(aviso)alert('No se pudo sincronizar (sin conexión). Se muestra lo último guardado.');
+  }
+}
+
+// Encuentra el chofer en el padrón local por ficha (por número de ficha, con
+// respaldo por texto exacto). Si no existe, lo CREA con ficha+nombre (decisión #2).
+function asegurarChofer(ficha,nombre,off){
+  const fn=fichaNum({ficha});
+  let ch=(fn!==Number.MAX_SAFE_INTEGER)?choferes.find(c=>fichaNum(c)===fn):null;
+  if(!ch)ch=choferes.find(c=>String(c.ficha||'')===String(ficha||''));
+  if(!ch){
+    ch={id:Date.now()+(off||0),nombre:nombre||('Ficha '+ficha),ficha:String(ficha||''),foto:null};
+    choferes.push(ch);
+  }
+  return ch;
+}
+
+// Fecha del reporte (ISO YYYY-MM-DD) + 1 día → texto es-DO igual que hoyStr().
+// Mediodía local evita corrimientos por zona horaria.
+function fechaSiguienteStr(iso){
+  const p=String(iso).split('-').map(Number);
+  if(p.length!==3||p.some(isNaN))return hoyStr();
+  const dt=new Date(p[0],p[1]-1,p[2],12,0,0);
+  dt.setDate(dt.getDate()+1);
+  return dt.toLocaleDateString('es-DO');
+}
+
+// Por cada reporte nuevo del chofer, crea una lista con lo VENDIDO fechada al día
+// siguiente. Dedupe por (origen+ficha+fecha del reporte): re-sincronizar NO
+// duplica ni pisa ediciones manuales. Devuelve cuántas listas nuevas creó.
+function importarReportesComoFacturas(){
+  const reportes=JSON.parse(localStorage.getItem('bon_sync_reportes')||'[]');
+  let creadas=0;
+  reportes.forEach(rep=>{
+    if(!rep||!rep.fecha)return;
+    const dup=listas.some(l=>l.origen==='app-chofer'&&String(l.srcFicha)===String(rep.ficha)&&l.srcFecha===rep.fecha);
+    if(dup)return;
+    const vendidos=(rep.items||[]).filter(it=>Number(it.vendido||0)>0);
+    if(!vendidos.length)return;
+    const ch=asegurarChofer(rep.ficha,rep.nombre,creadas);
+    const fechaStr=fechaSiguienteStr(rep.fecha);
+    listas.unshift({
+      id:Date.now()+creadas,
+      nombre:`Factura ${ch.nombre} · ${fechaStr}`,
+      notas:'',
+      fecha:new Date().toLocaleString('es-DO'),
+      fechaStr,
+      chofer:{id:ch.id,nombre:ch.nombre,ficha:ch.ficha,foto:ch.foto||null},
+      items:vendidos.map(it=>({nombre:it.nombre||'',cantidad:Number(it.vendido||0),codigo:it.codigo!=null?it.codigo:null,categoria:'Otros',_uid:uid()})),
+      escuchada:false,
+      origen:'app-chofer',
+      srcFicha:rep.ficha,
+      srcFecha:rep.fecha,
+    });
+    creadas++;
+  });
+  if(creadas){
+    if(listas.length>500)listas=listas.slice(0,500);
+    saveListas();
+    localStorage.setItem('bon_ch',JSON.stringify(choferes));
+    renderChoferes();renderDespacho();renderHistorial();
+  }
+  return creadas;
+}
+
+// ════ PERFIL DEL CHOFER — 3 tabs ════
+let cpChoferActual=null,cpTabActual='desp';
+function despachosDeChofer(ch){
+  const arr=JSON.parse(localStorage.getItem('bon_sync_despachos')||'[]');
+  const fn=fichaNum(ch);
+  return arr.filter(d=>(fn!==Number.MAX_SAFE_INTEGER&&fichaNum({ficha:d.ficha})===fn)||String(d.ficha||'')===String(ch.ficha||''))
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
+function reportesDeChofer(ch){
+  const arr=JSON.parse(localStorage.getItem('bon_sync_reportes')||'[]');
+  const fn=fichaNum(ch);
+  return arr.filter(r=>(fn!==Number.MAX_SAFE_INTEGER&&fichaNum({ficha:r.ficha})===fn)||String(r.ficha||'')===String(ch.ficha||''))
+    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+}
+function cpVacio(msg){return `<div style="text-align:center;color:var(--muted);font-size:.8rem;padding:16px">${cpEsc(msg)}</div>`;}
+function renderTabDespachadas(ch){
+  const arr=despachosDeChofer(ch);
+  if(!arr.length)return cpVacio('Sin despachos registrados.');
+  return arr.map(d=>{
+    const rows=(d.productos||[]).map(p=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:.8rem;padding:2px 0;border-top:1px solid var(--bg)"><span>${cpEsc(p.nombre)}</span><b>${Number(p.cantidad||0)}</b></div>`).join('');
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px"><div style="font-size:.75rem;font-weight:700;color:var(--red);margin-bottom:5px">🚚 ${cpEsc(d.fecha)}${d.fuente?` · ${cpEsc(d.fuente)}`:''}</div>${rows}</div>`;
+  }).join('');
+}
+function renderTabReportadas(ch){
+  const arr=reportesDeChofer(ch);
+  if(!arr.length)return cpVacio('Sin facturas reportadas por el chofer.');
+  return arr.map(r=>{
+    const vend=(r.items||[]).filter(it=>Number(it.vendido||0)>0);
+    const rows=vend.length?vend.map(it=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:.8rem;padding:2px 0;border-top:1px solid var(--bg)"><span>${it.codigo!=null?`#${cpEsc(it.codigo)} `:''}${cpEsc(it.nombre)}</span><b>${Number(it.vendido||0)}</b></div>`).join(''):cpVacio('Sin ventas ese día.');
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px"><div style="font-size:.75rem;font-weight:700;color:var(--red);margin-bottom:5px">📤 ${cpEsc(r.fecha)}${r.totales?` · ${Number(r.totales.unidades||0)} uds`:''}</div>${rows}</div>`;
+  }).join('');
+}
+function renderTabNoche(ch){
+  const arr=reportesDeChofer(ch);
+  if(!arr.length)return cpVacio('Sin reportes de la noche.');
+  return arr.map(r=>{
+    const rows=(r.items||[]).map(it=>`<div style="display:flex;flex-direction:column;font-size:.8rem;padding:3px 0;border-top:1px solid var(--bg)"><span>${it.codigo!=null?`#${cpEsc(it.codigo)} `:''}${cpEsc(it.nombre)}</span><small style="color:var(--muted)">Car ${Number(it.carga||0)} · Ven ${Number(it.vendido||0)} · Sob ${Number(it.sobrante||0)}</small></div>`).join('');
+    const t=r.totales||{};
+    const tot=`<div style="margin-top:6px;font-size:.74rem;color:#333;background:var(--yellow-l);border-radius:8px;padding:5px 8px">Vendidas: <b>${Number(t.unidades||0)}</b> · Puntos: <b>${Number(t.puntos||0)}</b> · <b>RD$ ${Number(t.rd||0).toLocaleString('en-US')}</b></div>`;
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px"><div style="font-size:.75rem;font-weight:700;color:var(--red);margin-bottom:5px">🌙 ${cpEsc(r.fecha)}</div>${rows}${tot}</div>`;
+  }).join('');
+}
+function cambiarTabPerfil(tab){
+  cpTabActual=tab;
+  document.querySelectorAll('#m-chofer-perfil .cp-tab').forEach(b=>{
+    const on=b.dataset.tab===tab;
+    b.classList.toggle('bred',on);b.classList.toggle('bout',!on);
+  });
+  const body=document.getElementById('cp-body');
+  if(!cpChoferActual){body.innerHTML='';return;}
+  if(tab==='desp')body.innerHTML=renderTabDespachadas(cpChoferActual);
+  else if(tab==='rep')body.innerHTML=renderTabReportadas(cpChoferActual);
+  else body.innerHTML=renderTabNoche(cpChoferActual);
+}
+function abrirPerfilChofer(id,e){
+  if(e)e.stopPropagation();
+  const ch=choferes.find(c=>c.id==id);
+  if(!ch)return;
+  cpChoferActual=ch;
+  const ava=document.getElementById('cp-ava');
+  if(ch.foto){ava.innerHTML=`<img src="${ch.foto}" style="width:100%;height:100%;object-fit:cover">`;ava.style.background='';}
+  else{ava.innerHTML=iniciales(ch.nombre);ava.style.background=strColor(ch.nombre);}
+  document.getElementById('cp-nom').textContent=ch.nombre;
+  document.getElementById('cp-fic').textContent='Ficha: '+(ch.ficha||'—');
+  cambiarTabPerfil('desp');
+  abrirMov('m-chofer-perfil');
+}
 
 // ════ MANUAL ════
 function poblarManCat(){

@@ -154,4 +154,89 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
+// ─── Lecturas del ecosistema (read-only) para BON ─────────────────────────────
+// BON LEE (nunca escribe) `reportes_chofer` y `talonario` con la service account
+// (Regla 3: procesos separados; Regla 4: lectura server-side). Alimenta la
+// auto-importación de facturas y los 3 tabs del perfil de chofer. Si la service
+// account no está configurada, `require('../lib/admin')` lanza y el endpoint
+// responde 500 → el frontend lo trata como "sin conexión" (offline-first).
+
+// Fecha YYYY-MM-DD en zona RD (UTC-4) con un desfase de días desde hoy.
+function fechaRDdesde(offsetDias = 0) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(Date.now() + offsetDias * 86400000));
+}
+
+// Lee ?desde=YYYY-MM-DD; si falta o es inválido, usa 30 días atrás (RD).
+function desdeParam(req) {
+  const q = req.query && req.query.desde;
+  if (typeof q === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
+  return fechaRDdesde(-30);
+}
+
+// GET /api/reportes-chofer?desde=YYYY-MM-DD
+// Reportes diarios de cada chofer (reportes_chofer/{ficha}/dias/{fecha}) desde `desde`.
+app.get('/api/reportes-chofer', async (req, res) => {
+  try {
+    const { db } = require('../lib/admin');
+    const desde = desdeParam(req);
+    const chofSnap = await db.collection('reportes_chofer').get();
+    const reportes = [];
+    for (const chof of chofSnap.docs) {
+      const diasSnap = await chof.ref.collection('dias').where('fecha', '>=', desde).get();
+      diasSnap.forEach((d) => {
+        const r = d.data() || {};
+        reportes.push({
+          ficha:   r.ficha || chof.id,
+          nombre:  r.nombre || '',
+          fecha:   r.fecha || d.id,
+          items:   Array.isArray(r.items) ? r.items : [],
+          totales: r.totales || null,
+        });
+      });
+    }
+    res.json({ reportes });
+  } catch (e) {
+    console.error('GET /api/reportes-chofer:', e.message);
+    res.status(500).json({ error: 'No se pudieron leer los reportes de choferes.' });
+  }
+});
+
+// GET /api/despachos-chofer?desde=YYYY-MM-DD
+// Despachos del Hub (talonario, tipo "retirada") desde `desde`. Solo lectura.
+app.get('/api/despachos-chofer', async (req, res) => {
+  try {
+    const { db, admin } = require('../lib/admin');
+    const desde = desdeParam(req);
+    const inicio = new Date(`${desde}T00:00:00-04:00`); // 00:00 RD (UTC-4)
+    const snap = await db.collection('talonario')
+      .where('timestamp', '>=', admin.firestore.Timestamp.fromDate(inicio))
+      .get();
+    const despachos = [];
+    snap.forEach((d) => {
+      const t = d.data() || {};
+      if (t.tipo !== 'retirada') return;
+      const ts = t.timestamp && typeof t.timestamp.toDate === 'function' ? t.timestamp.toDate() : null;
+      const fecha = ts
+        ? new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit',
+          }).format(ts)
+        : '';
+      despachos.push({
+        ficha:     t.choferFicha || '',
+        nombre:    t.choferNombre || '',
+        productos: Array.isArray(t.productos) ? t.productos : [],
+        fuente:    t.fuente || '',
+        fecha,
+        ts: ts ? ts.getTime() : 0,
+      });
+    });
+    res.json({ despachos });
+  } catch (e) {
+    console.error('GET /api/despachos-chofer:', e.message);
+    res.status(500).json({ error: 'No se pudieron leer los despachos.' });
+  }
+});
+
 module.exports = app;

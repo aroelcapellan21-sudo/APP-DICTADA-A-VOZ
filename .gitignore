@@ -3,3 +3,7 @@ node_modules/
 .env.local
 .vercel
 *.log
+
+# Credencial de Firebase (service account) — NUNCA subir a git
+firebase-service-account.json
+*-firebase-adminsdk-*.json
