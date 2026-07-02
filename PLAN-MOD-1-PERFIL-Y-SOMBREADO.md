@@ -35,27 +35,26 @@ El sombreado ahora refleja el estado de la factura de HOY del chofer
 auto-import). En BON "despachada" == la lista tiene escuchada:true (se dicto/
 finalizo el despacho; ver "Ya despachadas hoy" :445 y finalizarDictado :2011).
 
-  3 ESTADOS:
-    NARANJA  = factura cargada, SIN despachar todavia, y son ANTES de las 3 PM.
+  3 ESTADOS (Rev.3 — decision de Ariel: "verde antes de leer", sin naranja):
+    VERDE    = factura cargada, SIN despachar (ANTES de leer/dictar).
                (reporto anoche, su factura esta lista pero aun no se despacha)
     AZUL     = factura cargada, SIN despachar, y YA pasaron las 3 PM.
                (alerta de retraso)
-    NORMAL   = ya fue despachada (escuchada:true)  O  no hay factura de hoy.
+    NORMAL   = ya fue despachada/leida (escuchada:true)  O  no hay factura de hoy.
+    (Se descarto el NARANJA.)
 
-  Se ELIMINA el verde '.lleno' como color de estado (ya no aplica el modelo
-  viejo "tiene factura hoy"). '.lleno' se conserva SOLO para lo clicable
-  (cursor:pointer + abrir la factura al tocar).
+  '.lleno' se conserva SOLO para lo clicable (cursor:pointer + abrir la factura
+  al tocar); el color de estado va en clases aparte.
 
   CAMBIOS en index.html:
-  1) :root -> agregar  --orange:#fb8c00;  (el azul ya existe: --blue #1565c0).
-  2) CSS :131 '.ch-card.lleno' -> quitar el borde/sombra verde; dejar solo
+  1) CSS :131 '.ch-card.lleno' -> quitar el borde/sombra verde; dejar solo
      cursor:pointer (+ :active scale). Agregar despues:
-       .ch-card.reporto{ borde+tinte naranja }
-       .ch-card.retraso{ borde+tinte azul }
+       .ch-card.pend{ borde+sombra VERDE }   (sin despachar, antes de las 3 PM)
+       .ch-card.retraso{ borde+sombra AZUL } (sin despachar, pasadas las 3 PM)
      (definidos DESPUES de .lleno para que ganen la especificidad).
-  3) renderChoferes (:2264) -> calcular la clase:
+  2) renderChoferes (:2264) -> calcular la clase:
        let cls='ch-card'+(ld?' lleno':'');
-       if(ld && !ld.escuchada) cls += (new Date().getHours()>=15 ? ' retraso' : ' reporto');
+       if(ld && !ld.escuchada) cls += (new Date().getHours()>=15 ? ' retraso' : ' pend');
        div.className=cls;
      Se mantiene el click (:2267) cuando ld existe.
 
