@@ -2373,30 +2373,48 @@ function asegurarChofer(ficha,nombre,off){
   return ch;
 }
 
-// Fecha del reporte (ISO YYYY-MM-DD) + 1 día → texto es-DO igual que hoyStr().
-// Mediodía local evita corrimientos por zona horaria.
-function fechaSiguienteStr(iso){
+// Fecha del reporte (ISO YYYY-MM-DD) → texto es-DO igual que hoyStr(), el MISMO
+// día (sin sumar). Mediodía local evita corrimientos por zona horaria.
+function fechaReporteStr(iso){
   const p=String(iso).split('-').map(Number);
   if(p.length!==3||p.some(isNaN))return hoyStr();
-  const dt=new Date(p[0],p[1]-1,p[2],12,0,0);
-  dt.setDate(dt.getDate()+1);
-  return dt.toLocaleDateString('es-DO');
+  return new Date(p[0],p[1]-1,p[2],12,0,0).toLocaleDateString('es-DO');
 }
 
-// Por cada reporte nuevo del chofer, crea una lista con lo VENDIDO fechada al día
-// siguiente. Dedupe por (origen+ficha+fecha del reporte): re-sincronizar NO
-// duplica ni pisa ediciones manuales. Devuelve cuántas listas nuevas creó.
+// Por cada reporte del chofer, crea una lista con lo VENDIDO fechada el MISMO día
+// del reporte (para que aparezca en Despacho ese día). Dedupe por
+// (origen+ficha+fecha del reporte): re-sincronizar NO duplica ni pisa ediciones
+// ni facturas ya leídas. Migra las que se hubieran importado con la fecha vieja
+// (día siguiente) re-fechándolas si siguen sin leer. Devuelve cuántas creó.
 function importarReportesComoFacturas(){
   const reportes=JSON.parse(localStorage.getItem('bon_sync_reportes')||'[]');
-  let creadas=0;
+  let creadas=0,cambios=0;
   reportes.forEach(rep=>{
     if(!rep||!rep.fecha)return;
-    const dup=listas.some(l=>l.origen==='app-chofer'&&String(l.srcFicha)===String(rep.ficha)&&l.srcFecha===rep.fecha);
-    if(dup)return;
     const vendidos=(rep.items||[]).filter(it=>Number(it.vendido||0)>0);
     if(!vendidos.length)return;
+    const fechaStr=fechaReporteStr(rep.fecha);
+    // Items de la factura = lo VENDIDO del reporte (la cantidad a despachar es el
+    // vendido tal cual, ej. vendió 29 → despachar 29).
+    const mkItems=()=>vendidos.map(it=>({nombre:it.nombre||'',cantidad:Number(it.vendido||0),codigo:it.codigo!=null?it.codigo:null,categoria:'Otros',_uid:uid()}));
+    const firma=arr=>JSON.stringify((arr||[]).map(i=>[i.codigo,i.nombre,Number(i.cantidad)]));
+    const ex=listas.find(l=>l.origen==='app-chofer'&&String(l.srcFicha)===String(rep.ficha)&&l.srcFecha===rep.fecha);
+    if(ex){
+      // Ya importada: si sigue SIN leer, REFRÉSCALA con lo último del reporte
+      // (fecha + cantidades vendidas), para reflejar correcciones del chofer.
+      // No toca las ya leídas/despachadas.
+      if(!ex.escuchada){
+        const nuevos=mkItems();
+        if(ex.fechaStr!==fechaStr||firma(ex.items)!==firma(nuevos)){
+          ex.fechaStr=fechaStr;
+          ex.nombre=`Factura ${(ex.chofer&&ex.chofer.nombre)||''} · ${fechaStr}`;
+          ex.items=nuevos;
+          cambios++;
+        }
+      }
+      return;
+    }
     const ch=asegurarChofer(rep.ficha,rep.nombre,creadas);
-    const fechaStr=fechaSiguienteStr(rep.fecha);
     listas.unshift({
       id:Date.now()+creadas,
       nombre:`Factura ${ch.nombre} · ${fechaStr}`,
@@ -2404,7 +2422,7 @@ function importarReportesComoFacturas(){
       fecha:new Date().toLocaleString('es-DO'),
       fechaStr,
       chofer:{id:ch.id,nombre:ch.nombre,ficha:ch.ficha,foto:ch.foto||null},
-      items:vendidos.map(it=>({nombre:it.nombre||'',cantidad:Number(it.vendido||0),codigo:it.codigo!=null?it.codigo:null,categoria:'Otros',_uid:uid()})),
+      items:mkItems(),
       escuchada:false,
       origen:'app-chofer',
       srcFicha:rep.ficha,
@@ -2412,7 +2430,7 @@ function importarReportesComoFacturas(){
     });
     creadas++;
   });
-  if(creadas){
+  if(creadas||cambios){
     if(listas.length>500)listas=listas.slice(0,500);
     saveListas();
     localStorage.setItem('bon_ch',JSON.stringify(choferes));
