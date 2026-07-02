@@ -8,7 +8,7 @@
 //
 // Al cambiar la lógica del SW sí conviene subir CACHE (bon-v3 -> bon-v4) para
 // que el navegador detecte el SW nuevo y 'activate' purgue los cachés viejos.
-const CACHE = 'bon-v7';
+const CACHE = 'bon-v8';
 const URL_APP = '/';
 
 self.addEventListener('install', e => {
