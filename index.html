@@ -447,8 +447,6 @@ input[type=file]{display:none}
     <div class="burbujas-wrap" id="burbs-pendientes"></div>
     <div class="desp-titulo" style="margin-top:8px;color:var(--green)">✅ Ya despachadas hoy</div>
     <div class="burbujas-wrap" id="burbs-escuchadas"></div>
-    <div class="desp-titulo" style="margin-top:8px;color:var(--blue)">📅 Próximas (día siguiente)</div>
-    <div class="burbujas-wrap" id="burbs-proximas"></div>
   </div>
 </div>
 
@@ -743,8 +741,8 @@ input[type=file]{display:none}
     </div>
   </div>
   <div style="display:flex;gap:4px;margin-bottom:8px">
-    <button class="btn bred cp-tab" data-tab="rep" onclick="cambiarTabPerfil('rep')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">📤<span>Reportadas</span></button>
-    <button class="btn bout cp-tab" data-tab="desp" onclick="cambiarTabPerfil('desp')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">🚚<span>Despachadas</span></button>
+    <button class="btn bred cp-tab" data-tab="desp" onclick="cambiarTabPerfil('desp')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">🚚<span>Despachadas</span></button>
+    <button class="btn bout cp-tab" data-tab="rep" onclick="cambiarTabPerfil('rep')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">📤<span>Reportadas</span></button>
     <button class="btn bout cp-tab" data-tab="noche" onclick="cambiarTabPerfil('noche')" style="flex:1;padding:6px 4px;font-size:.66rem;flex-direction:column;gap:1px">🌙<span>Reportes</span></button>
   </div>
   <div id="cp-body" style="max-height:52vh;overflow-y:auto"></div>
@@ -868,9 +866,6 @@ function nombreFecha(){
   return `${DIAS[h.getDay()]} ${h.getDate()} de ${MESES[h.getMonth()]} ${h.getFullYear()}`;
 }
 function hoyStr(){return new Date().toLocaleDateString('es-DO');}
-// Fecha de hoy en ISO (YYYY-MM-DD) local — para comparar contra srcFecha (que es
-// ISO). No usar fechaStr (texto es-DO) para comparar: no es ordenable de forma fiable.
-function hoyIso(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function grupBy(items){return items.reduce((g,it)=>{const c=it.categoria||'Otros';if(!g[c])g[c]=[];g[c].push(it);return g;},{});}
 // ─── Mejora I — Choferes/Despacho (helpers) ───
 // Número de ficha para ordenar (extrae los dígitos; sin número → al final).
@@ -1563,12 +1558,6 @@ function renderDespacho(){
   const listasHoy=listas.filter(l=>l.fechaStr===hoy);
   const pendientes=listasHoy.filter(l=>!l.escuchada).slice().sort(porFicha);
   const escuchadas=listasHoy.filter(l=>l.escuchada).slice().sort(porFicha);
-  // Proximas: facturas auto-importadas del reporte (origen app-chofer) fechadas
-  // para DESPUES de hoy y aun sin despachar. La factura es del dia siguiente al
-  // reporte, asi que "despues de hoy" <=> srcFecha (ISO del reporte) >= hoy.
-  const hoyI=hoyIso();
-  const proximas=listas.filter(l=>!l.escuchada&&l.origen==='app-chofer'&&l.srcFecha&&String(l.srcFecha)>=hoyI)
-    .slice().sort((a,b)=>String(a.srcFecha).localeCompare(String(b.srcFecha))||porFicha(a,b));
   const pCont=document.getElementById('burbs-pendientes');
   const eCont=document.getElementById('burbs-escuchadas');
 
@@ -1597,22 +1586,6 @@ function renderDespacho(){
       b.innerHTML=`<div class="bava" style="background:${ch?strColor(ch.nombre):'#757575'};border-color:var(--green);box-shadow:0 0 0 3px rgba(46,125,50,.25);opacity:.75">${avaInner}</div><div class="bnom" style="opacity:.7">${ch?ch.nombre:'Sin chofer'}</div><div class="bfic">✅</div>`;
       b.addEventListener('click',()=>abrirPanelLista(l.id));
       eCont.appendChild(b);
-    });
-  }
-
-  const pxCont=document.getElementById('burbs-proximas');
-  pxCont.innerHTML='';
-  if(!proximas.length){pxCont.innerHTML='<div class="empty" style="opacity:.6"><span>📅</span>Ninguna próxima</div>';}
-  else{
-    proximas.forEach(l=>{
-      const ch=l.chofer;
-      const b=document.createElement('div');b.className='burbuja';
-      const color=ch?strColor(ch.nombre):'#757575';
-      let avaInner=ch&&ch.foto?`<img src="${ch.foto}">`:(ch?iniciales(ch.nombre):'?');
-      b.innerHTML=`<button class="bnota${l.notas?' has':''}" title="${l.notas?'Nota del despacho':'Agregar nota'}">📝</button><div class="bava" style="background:${color};border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,101,192,.22)">${avaInner}</div><div class="bnom">${ch?ch.nombre:'Sin chofer'}</div><div class="bfic">${ch?ch.ficha:''} · 📅 ${l.fechaStr}</div>`;
-      b.querySelector('.bnota').addEventListener('click',e=>{e.stopPropagation();abrirNotaChofer(l.id);});
-      b.addEventListener('click',()=>abrirPanelLista(l.id));
-      pxCont.appendChild(b);
     });
   }
 }
@@ -2449,7 +2422,7 @@ function importarReportesComoFacturas(){
 }
 
 // ════ PERFIL DEL CHOFER — 3 tabs ════
-let cpChoferActual=null,cpTabActual='rep';
+let cpChoferActual=null,cpTabActual='desp';
 function despachosDeChofer(ch){
   const arr=JSON.parse(localStorage.getItem('bon_sync_despachos')||'[]');
   const fn=fichaNum(ch);
@@ -2512,7 +2485,7 @@ function abrirPerfilChofer(id,e){
   else{ava.innerHTML=iniciales(ch.nombre);ava.style.background=strColor(ch.nombre);}
   document.getElementById('cp-nom').textContent=ch.nombre;
   document.getElementById('cp-fic').textContent='Ficha: '+(ch.ficha||'—');
-  cambiarTabPerfil('rep');
+  cambiarTabPerfil('desp');
   abrirMov('m-chofer-perfil');
 }
 
